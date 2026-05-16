@@ -1,5 +1,7 @@
+import PencilKit
 import SwiftUI
 import UIKit
+import Vision
 
 struct ContentView: View {
     @State private var selectedCell = CrosswordCoordinate(row: 0, column: 0)
