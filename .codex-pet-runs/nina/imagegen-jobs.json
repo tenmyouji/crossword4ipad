@@ -58,7 +58,7 @@
     {
       "id": "running-right",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/running-right.md",
       "retry_prompt_file": "prompts/row-retries/running-right.md",
       "input_images": [
@@ -88,12 +88,14 @@
         "may_derive": false,
         "reason": "no deterministic derivation is configured for this state"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08af62704c81939c59fe04b2b53673.png",
+      "completed_at": "2026-05-16T17:55:30Z"
     },
     {
       "id": "running-left",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/running-left.md",
       "retry_prompt_file": "prompts/row-retries/running-left.md",
       "input_images": [
@@ -138,12 +140,27 @@
         "derivation": "framewise-horizontal-mirror-preserving-order",
         "requires_explicit_approval": true,
         "fallback_generation_skill": "$imagegen"
+      },
+      "source_path": "decoded/running-right.png",
+      "derived_from": "running-right",
+      "completed_at": "2026-05-16T17:55:47.700793+00:00",
+      "metadata": {
+        "width": 2172,
+        "height": 724,
+        "mode": "RGBA",
+        "format": "PNG"
+      },
+      "mirror_decision": {
+        "approved": true,
+        "approved_at": "2026-05-16T17:55:47.700793+00:00",
+        "note": "Nina has no side-specific markings or props, so a framewise mirror preserves her grey doll-faced identity while reversing direction.",
+        "transform": "framewise-horizontal-mirror-preserving-order"
       }
     },
     {
       "id": "waving",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/waving.md",
       "retry_prompt_file": "prompts/row-retries/waving.md",
       "input_images": [
@@ -173,12 +190,14 @@
         "may_derive": false,
         "reason": "state requires its own generated animation semantics"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08afd7dbc08193b3ba016b82c54193.png",
+      "completed_at": "2026-05-16T17:57:32Z"
     },
     {
       "id": "jumping",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/jumping.md",
       "retry_prompt_file": "prompts/row-retries/jumping.md",
       "input_images": [
@@ -208,12 +227,14 @@
         "may_derive": false,
         "reason": "state requires its own generated animation semantics"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08b02c31c0819384aa013899b4a0a4.png",
+      "completed_at": "2026-05-16T17:58:55Z"
     },
     {
       "id": "failed",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/failed.md",
       "retry_prompt_file": "prompts/row-retries/failed.md",
       "input_images": [
@@ -243,12 +264,14 @@
         "may_derive": false,
         "reason": "state requires its own generated animation semantics"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08b0d548ac8193a666bd6000d4294c.png",
+      "completed_at": "2026-05-16T18:01:44Z"
     },
     {
       "id": "waiting",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/waiting.md",
       "retry_prompt_file": "prompts/row-retries/waiting.md",
       "input_images": [
@@ -278,12 +301,14 @@
         "may_derive": false,
         "reason": "state requires its own generated animation semantics"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08b29b92f48193a15119b4813756b7.png",
+      "completed_at": "2026-05-16T18:09:17Z"
     },
     {
       "id": "running",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/running.md",
       "retry_prompt_file": "prompts/row-retries/running.md",
       "input_images": [
@@ -313,12 +338,14 @@
         "may_derive": false,
         "reason": "state requires its own generated animation semantics"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08b37ffa3c8193946622fe138ea45c.png",
+      "completed_at": "2026-05-16T18:13:13Z"
     },
     {
       "id": "review",
       "kind": "row-strip",
-      "status": "pending",
+      "status": "complete",
       "prompt_file": "prompts/rows/review.md",
       "retry_prompt_file": "prompts/row-retries/review.md",
       "input_images": [
@@ -348,7 +375,10 @@
         "may_derive": false,
         "reason": "state requires its own generated animation semantics"
       },
-      "mirror_policy": {}
+      "mirror_policy": {},
+      "source_path": "/Users/leiva/.codex/generated_images/019e29c2-0331-7673-ba8d-8009f2ac57a0/ig_06263c4227d4ed99016a08b37ffa3c8193946622fe138ea45c.png",
+      "completed_at": "2026-05-16T18:16:38Z",
+      "derivation_note": "Reused the subtle focused working loop for review posture."
     }
   ]
 }
