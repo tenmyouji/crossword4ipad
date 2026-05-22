@@ -13,64 +13,111 @@ struct ContentView: View {
     @State private var recognizedLetters: [CrosswordCoordinate: String] = [:]
     @State private var checkResult: PuzzleCheckResult?
     @State private var puzzle = CrosswordPuzzle.generated(size: 5)
+    @State private var puzzleDifficulty: PuzzleDifficulty = .easy
     @State private var nextPuzzleSize = 5
+    @State private var nextPuzzleDifficulty: PuzzleDifficulty = .easy
     @State private var isShowingCompletionSheet = false
+    @State private var isShowingPuzzleConfiguration = false
     @State private var puzzleStartedAt = Date()
     @State private var boardInputResetID = 0
 
     private let puzzleSizes = [5, 10, 15]
 
     var body: some View {
-        ZStack {
-            PaperBackground()
+        GeometryReader { proxy in
+            let isLandscape = proxy.size.width > proxy.size.height
+            let sidebarWidth = min(390, proxy.size.width * 0.34)
+            let landscapeBoardSize = min(780, max(320, proxy.size.width - sidebarWidth - 112), max(320, proxy.size.height - 64))
+            let portraitBoardSize = min(max(300, proxy.size.width - 40), max(300, proxy.size.height * 0.58), 720)
 
-            VStack(spacing: 18) {
-                HeaderView(size: puzzle.size, startedAt: puzzleStartedAt)
+            ZStack {
+                PaperBackground()
 
-                HStack(alignment: .top, spacing: 24) {
-                    CrosswordBoard(
-                        puzzle: puzzle,
-                        selectedCell: $selectedCell,
-                        direction: direction,
-                        recognizedLetters: $recognizedLetters,
-                        resetID: boardInputResetID,
-                        onSelectCell: selectCell,
-                        onRecognizedLetter: storeRecognizedLetter
-                    )
-                    .frame(maxWidth: 720, maxHeight: 720)
-                    .aspectRatio(1, contentMode: .fit)
+                VStack {
+                    if isLandscape {
+                        HStack(alignment: .top, spacing: 24) {
+                            PuzzleSidebar(
+                                puzzle: puzzle,
+                                selectedCell: selectedCell,
+                                recognizedLetters: recognizedLetters,
+                                isLandscape: isLandscape,
+                                direction: $direction,
+                                checkResult: checkResult,
+                                startedAt: puzzleStartedAt,
+                                moveToPreviousClue: moveToPreviousClue,
+                                moveToNextClue: moveToNextClue,
+                                selectClue: selectClue,
+                                checkPuzzle: checkPuzzle,
+                                restartPuzzle: restartPuzzle,
+                                startNewPuzzle: startNewPuzzle,
+                                showAnswers: showAnswers
+                            )
+                            .frame(width: sidebarWidth)
 
-                    VStack(spacing: 12) {
-                        CluePanel(
-                            puzzle: puzzle,
-                            selectedCell: selectedCell,
-                            direction: $direction,
-                            moveToPreviousClue: moveToPreviousClue,
-                            moveToNextClue: moveToNextClue,
-                            selectClue: selectClue
-                        )
+                            boardView
+                                .frame(width: landscapeBoardSize, height: landscapeBoardSize)
+                        }
+                        .frame(maxWidth: 1190)
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 16) {
+                                boardView
+                                    .frame(width: portraitBoardSize, height: portraitBoardSize)
 
-                        PuzzleActionsView(
-                            checkResult: checkResult,
-                            checkPuzzle: checkPuzzle,
-                            restartPuzzle: restartPuzzle,
-                            startNewPuzzle: startNewPuzzle,
-                            showAnswers: showAnswers
-                        )
+                                PuzzleSidebar(
+                                    puzzle: puzzle,
+                                    selectedCell: selectedCell,
+                                    recognizedLetters: recognizedLetters,
+                                    isLandscape: isLandscape,
+                                    direction: $direction,
+                                    checkResult: checkResult,
+                                    startedAt: puzzleStartedAt,
+                                    moveToPreviousClue: moveToPreviousClue,
+                                    moveToNextClue: moveToNextClue,
+                                    selectClue: selectClue,
+                                    checkPuzzle: checkPuzzle,
+                                    restartPuzzle: restartPuzzle,
+                                    startNewPuzzle: startNewPuzzle,
+                                    showAnswers: showAnswers
+                                )
+                                .frame(maxWidth: min(proxy.size.width - 40, 720))
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
                     }
-                    .frame(width: 360)
                 }
-                .frame(maxWidth: 1160)
+                .padding(isLandscape ? 32 : 20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .padding(32)
         }
         .sheet(isPresented: $isShowingCompletionSheet) {
             CompletionView(
                 selectedSize: $nextPuzzleSize,
+                selectedDifficulty: $nextPuzzleDifficulty,
                 puzzleSizes: puzzleSizes,
                 showAnotherPuzzle: showAnotherPuzzle
             )
         }
+        .sheet(isPresented: $isShowingPuzzleConfiguration) {
+            PuzzleConfigurationView(
+                selectedSize: $nextPuzzleSize,
+                selectedDifficulty: $nextPuzzleDifficulty,
+                puzzleSizes: puzzleSizes,
+                startPuzzle: applyPuzzleConfiguration
+            )
+        }
+    }
+
+    private var boardView: some View {
+        CrosswordBoard(
+            puzzle: puzzle,
+            selectedCell: $selectedCell,
+            direction: direction,
+            recognizedLetters: $recognizedLetters,
+            resetID: boardInputResetID,
+            onSelectCell: selectCell,
+            onRecognizedLetter: storeRecognizedLetter
+        )
     }
 
     private func clearSelectedCell() {
@@ -115,15 +162,45 @@ struct ContentView: View {
     }
 
     private func moveToPreviousClue() {
-        if let coordinate = puzzle.adjacentClueStart(containing: selectedCell, direction: direction, offset: -1) {
-            selectedCell = coordinate
-        }
+        moveClue(offset: -1)
     }
 
     private func moveToNextClue() {
-        if let coordinate = puzzle.adjacentClueStart(containing: selectedCell, direction: direction, offset: 1) {
-            selectedCell = coordinate
+        moveClue(offset: 1)
+    }
+
+    private func moveClue(offset: Int) {
+        let currentClues = clues(for: direction)
+        let alternateDirection: CrosswordDirection = direction == .across ? .down : .across
+        let alternateClues = clues(for: alternateDirection)
+        guard !currentClues.isEmpty else {
+            moveToClue(alternateClues.first, direction: alternateDirection)
+            return
         }
+
+        let currentIndex = currentClues.firstIndex { $0.cells.contains(selectedCell) } ?? 0
+        let nextIndex = currentIndex + offset
+
+        if currentClues.indices.contains(nextIndex) {
+            moveToClue(currentClues[nextIndex], direction: direction)
+            return
+        }
+
+        if offset > 0 {
+            moveToClue(alternateClues.first ?? currentClues.first, direction: alternateClues.isEmpty ? direction : alternateDirection)
+        } else {
+            moveToClue(alternateClues.last ?? currentClues.last, direction: alternateClues.isEmpty ? direction : alternateDirection)
+        }
+    }
+
+    private func moveToClue(_ clue: CrosswordClue?, direction selectedDirection: CrosswordDirection) {
+        guard let clue, let firstCell = clue.cells.first else { return }
+        direction = selectedDirection
+        selectedCell = firstCell
+    }
+
+    private func clues(for direction: CrosswordDirection) -> [CrosswordClue] {
+        direction == .across ? puzzle.acrossClues : puzzle.downClues
     }
 
     private func selectClue(_ clue: CrosswordClue, direction selectedDirection: CrosswordDirection) {
@@ -174,7 +251,9 @@ struct ContentView: View {
 
     private func startNewPuzzle() {
         nextPuzzleSize = puzzle.size
-        resetPuzzle(size: puzzle.size)
+        nextPuzzleDifficulty = puzzleDifficulty
+        isShowingCompletionSheet = false
+        isShowingPuzzleConfiguration = true
     }
 
     private func restartPuzzle() {
@@ -194,12 +273,22 @@ struct ContentView: View {
     }
 
     private func showAnotherPuzzle() {
-        resetPuzzle(size: nextPuzzleSize)
+        resetPuzzle(size: nextPuzzleSize, difficulty: nextPuzzleDifficulty)
         isShowingCompletionSheet = false
     }
 
-    private func resetPuzzle(size: Int) {
-        puzzle = CrosswordPuzzle.generated(size: size)
+    private func applyPuzzleConfiguration() {
+        resetPuzzle(size: nextPuzzleSize, difficulty: nextPuzzleDifficulty)
+        isShowingPuzzleConfiguration = false
+    }
+
+    private func resetPuzzle(size: Int, difficulty: PuzzleDifficulty) {
+        puzzle = CrosswordPuzzle.generated(
+            size: size,
+            seed: difficulty.seedOffset + Int(Date().timeIntervalSince1970),
+            difficulty: difficulty
+        )
+        puzzleDifficulty = difficulty
         selectedCell = CrosswordCoordinate(row: 0, column: 0)
         direction = .across
         recognizedLetters.removeAll()
@@ -209,27 +298,41 @@ struct ContentView: View {
     }
 }
 
-private struct HeaderView: View {
-    let size: Int
+private struct PuzzleSidebar: View {
+    let puzzle: CrosswordPuzzle
+    let selectedCell: CrosswordCoordinate
+    let recognizedLetters: [CrosswordCoordinate: String]
+    let isLandscape: Bool
+    @Binding var direction: CrosswordDirection
+    let checkResult: PuzzleCheckResult?
     let startedAt: Date
+    let moveToPreviousClue: () -> Void
+    let moveToNextClue: () -> Void
+    let selectClue: (CrosswordClue, CrosswordDirection) -> Void
+    let checkPuzzle: () -> Void
+    let restartPuzzle: () -> Void
+    let startNewPuzzle: () -> Void
+    let showAnswers: () -> Void
 
     var body: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("crosswordapp")
-                    .font(.system(size: 32, weight: .bold, design: .serif))
-                    .foregroundStyle(Color.ink)
-
-                Text("\(size) x \(size) mini · write with Apple Pencil, tap with touch")
-                    .font(.system(size: 14, weight: .medium, design: .serif))
-                    .foregroundStyle(Color.softInk)
-            }
-
-            Spacer()
-
-            TimerBadge(startedAt: startedAt)
+        VStack(spacing: 12) {
+            CluePanel(
+                puzzle: puzzle,
+                selectedCell: selectedCell,
+                recognizedLetters: recognizedLetters,
+                isLandscape: isLandscape,
+                direction: $direction,
+                checkResult: checkResult,
+                startedAt: startedAt,
+                moveToPreviousClue: moveToPreviousClue,
+                moveToNextClue: moveToNextClue,
+                selectClue: selectClue,
+                checkPuzzle: checkPuzzle,
+                restartPuzzle: restartPuzzle,
+                startNewPuzzle: startNewPuzzle,
+                showAnswers: showAnswers
+            )
         }
-        .frame(maxWidth: 1160)
     }
 }
 
@@ -242,9 +345,9 @@ private struct TimerBadge: View {
                 .font(.system(size: 14, weight: .bold, design: .serif))
                 .monospacedDigit()
                 .foregroundStyle(Color.ink)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(Color.timerSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(Color.hairline, lineWidth: 1)
@@ -278,7 +381,16 @@ private struct CrosswordBoard: View {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.surface)
-                    .shadow(color: Color.shadow.opacity(0.16), radius: 12, x: 0, y: 5)
+                    .overlay(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.boardWarmth.opacity(0.5))
+                            .blendMode(.multiply)
+                    }
+                    .shadow(color: Color.shadow.opacity(0.18), radius: 18, x: 0, y: 8)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.boardEdge, lineWidth: 1.5)
+                    }
 
                 ForEach(0..<puzzle.size, id: \.self) { row in
                     ForEach(0..<puzzle.size, id: \.self) { column in
@@ -339,14 +451,14 @@ private struct CrosswordCell: View {
                 if let number = puzzle.number(for: coordinate) {
                     Text("\(number)")
                         .font(.system(size: 10, weight: .bold, design: .serif))
-                        .foregroundStyle(Color.softInk)
+                        .foregroundStyle(Color.clueNumber)
                         .padding(4)
                 }
             }
         }
         .overlay(alignment: .center) {
             Rectangle()
-                .stroke(Color.gridLine, lineWidth: 0.8)
+                .stroke(Color.gridLine, lineWidth: 0.85)
         }
     }
 
@@ -570,6 +682,11 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, PKCanva
             return
         }
 
+        let didStartNewDrawing = state.drawing.bounds.isEmpty && !canvas.drawing.bounds.isEmpty
+        if didStartNewDrawing {
+            state.startedWithRecognizedLetter = recognizedLetters[canvas.coordinate]?.isEmpty == false
+        }
+
         finishActiveInkIfNeeded(excluding: canvas.coordinate)
         activeInkCoordinate = canvas.coordinate
         state.drawing = canvas.drawing
@@ -626,6 +743,17 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, PKCanva
         guard let state = cellStates[coordinate] else { return }
 
         guard let resolvedLetter = result.letter else {
+            if state.startedWithRecognizedLetter,
+               Self.isDeleteGesture(in: state.drawing, canvasSize: state.canvas.bounds.size) {
+                Self.debugLog("Recognition treated ink as delete at \(coordinate.row),\(coordinate.column): \(result.debugDescription)")
+                state.clearRecognition()
+                if activeInkCoordinate == coordinate {
+                    activeInkCoordinate = nil
+                }
+                onRecognizedLetter(nil, coordinate)
+                return
+            }
+
             Self.debugLog("Recognition kept ink at \(coordinate.row),\(coordinate.column): \(result.debugDescription)")
             return
         }
@@ -666,6 +794,59 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, PKCanva
 
     private static func recognizeLetter(in drawing: PKDrawing, completion: @escaping (HandwritingRecognitionResult) -> Void) {
         recognizeLetterWithDigitalInkIfAvailable(in: drawing, completion: completion)
+    }
+
+    private static func isDeleteGesture(in drawing: PKDrawing, canvasSize: CGSize) -> Bool {
+        let strokes = drawing.strokes
+        guard !strokes.isEmpty else { return false }
+
+        let width = max(canvasSize.width, 1)
+        let height = max(canvasSize.height, 1)
+        let cellSpan = max(min(width, height), 1)
+        let bounds = drawing.bounds
+        let horizontalCoverage = bounds.width / width
+        let verticalCoverage = bounds.height / height
+        let broadCoverage = horizontalCoverage >= 0.45 || verticalCoverage >= 0.45
+        let balancedCoverage = horizontalCoverage >= 0.32 && verticalCoverage >= 0.22
+        let stats = deleteGestureStats(for: strokes, width: width, height: height)
+        let normalizedLength = stats.totalLength / cellSpan
+
+        let longStrike = stats.hasStrikeLikeStroke && broadCoverage && normalizedLength >= 0.55
+        let crossedOut = strokes.count >= 2 && stats.hasStrikeLikeStroke && broadCoverage && normalizedLength >= 0.75
+        let heavyScribble = strokes.count >= 3 && balancedCoverage && normalizedLength >= 1.15
+
+        return longStrike || crossedOut || heavyScribble
+    }
+
+    private static func deleteGestureStats(
+        for strokes: [PKStroke],
+        width: CGFloat,
+        height: CGFloat
+    ) -> (totalLength: CGFloat, hasStrikeLikeStroke: Bool) {
+        var totalLength: CGFloat = 0
+        var hasStrikeLikeStroke = false
+
+        for stroke in strokes {
+            let points = stroke.path.map(\.location)
+            guard points.count >= 2,
+                  let first = points.first,
+                  let last = points.last else {
+                continue
+            }
+
+            for index in points.indices.dropFirst() {
+                let previous = points[points.index(before: index)]
+                totalLength += hypot(points[index].x - previous.x, points[index].y - previous.y)
+            }
+
+            let horizontalSpan = abs(last.x - first.x) / width
+            let verticalSpan = abs(last.y - first.y) / height
+            let isHorizontalStrike = horizontalSpan >= 0.48 && verticalSpan <= 0.32
+            let isDiagonalStrike = horizontalSpan >= 0.36 && verticalSpan >= 0.24
+            hasStrikeLikeStroke = hasStrikeLikeStroke || isHorizontalStrike || isDiagonalStrike
+        }
+
+        return (totalLength, hasStrikeLikeStroke)
     }
 
     private static func recognizeLetterWithDigitalInkIfAvailable(
@@ -881,6 +1062,7 @@ private final class CellInputState {
     var recognitionGeneration = 0
     var isClearingInk = false
     var lastRecognitionDebug = ""
+    var startedWithRecognizedLetter = false
 
     init(coordinate: CrosswordCoordinate, canvas: CellCanvasView) {
         self.coordinate = coordinate
@@ -889,6 +1071,7 @@ private final class CellInputState {
 
     func clearInk() {
         drawing = PKDrawing()
+        startedWithRecognizedLetter = false
         isClearingInk = true
         canvas.drawing = drawing
         isClearingInk = false
@@ -916,124 +1099,250 @@ private extension UIFont {
 private struct CluePanel: View {
     let puzzle: CrosswordPuzzle
     let selectedCell: CrosswordCoordinate
+    let recognizedLetters: [CrosswordCoordinate: String]
+    let isLandscape: Bool
     @Binding var direction: CrosswordDirection
+    let checkResult: PuzzleCheckResult?
+    let startedAt: Date
     let moveToPreviousClue: () -> Void
     let moveToNextClue: () -> Void
     let selectClue: (CrosswordClue, CrosswordDirection) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Picker("Direction", selection: $direction) {
-                ForEach(CrosswordDirection.allCases) { direction in
-                    Text(direction.title).tag(direction)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            CurrentClueCard(
-                clue: puzzle.clue(containing: selectedCell, direction: direction),
-                direction: direction
-            )
-
-            HStack(spacing: 10) {
-                Button(action: moveToPreviousClue) {
-                    Label("Previous", systemImage: "chevron.left")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(.primaryAction)
-
-                Button(action: moveToNextClue) {
-                    Label("Next", systemImage: "chevron.right")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(.primaryAction)
-            }
-
-            Divider()
-                .overlay(Color.hairline)
-
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    ClueList(
-                        title: "Across",
-                        direction: .across,
-                        clues: puzzle.acrossClues,
-                        selectedCell: selectedCell,
-                        selectClue: selectClue
-                    )
-                    ClueList(
-                        title: "Down",
-                        direction: .down,
-                        clues: puzzle.downClues,
-                        selectedCell: selectedCell,
-                        selectClue: selectClue
-                    )
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-        }
-        .padding(18)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.hairline, lineWidth: 1)
-        }
-        .shadow(color: Color.shadow.opacity(0.12), radius: 10, x: 0, y: 3)
-    }
-}
-
-private struct PuzzleActionsView: View {
-    let checkResult: PuzzleCheckResult?
     let checkPuzzle: () -> Void
     let restartPuzzle: () -> Void
     let startNewPuzzle: () -> Void
     let showAnswers: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Menu {
-                Button(action: restartPuzzle) {
-                    Label("Restart Puzzle", systemImage: "arrow.counterclockwise")
-                }
+        VStack(alignment: .leading, spacing: 14) {
+            topControls
 
-                Button(action: startNewPuzzle) {
-                    Label("New Puzzle", systemImage: "plus.square.on.square")
-                }
+            DirectionTabs(selection: $direction)
 
-                Button(action: showAnswers) {
-                    Label("Show Me the Answers", systemImage: "eye")
+            if isLandscape {
+                currentClueControls
+
+                Divider()
+                    .overlay(Color.hairline)
+
+                clueList
+            } else {
+                HStack(alignment: .top, spacing: 14) {
+                    clueList
+                        .frame(maxWidth: .infinity)
+
+                    currentClueControls
+                        .frame(width: 250)
                 }
-            } label: {
-                Label("Puzzle Menu", systemImage: "line.3.horizontal")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .tint(.primaryAction)
 
+        }
+        .padding(20)
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.hairline, lineWidth: 1)
+        }
+        .shadow(color: Color.shadow.opacity(0.10), radius: 16, x: 0, y: 8)
+    }
+
+    private var topControls: some View {
+        HStack(spacing: 10) {
+            puzzleMenu
+
+            Spacer()
+
+            TimerBadge(startedAt: startedAt)
+        }
+    }
+
+    private var puzzleMenu: some View {
+        Menu {
             Button(action: checkPuzzle) {
                 Label("Check Puzzle", systemImage: "checkmark.circle")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.primaryAction)
+
+            Button(action: restartPuzzle) {
+                Label("Restart Puzzle", systemImage: "arrow.counterclockwise")
+            }
+
+            Button(action: startNewPuzzle) {
+                Label("New Puzzle", systemImage: "plus.square.on.square")
+            }
+
+            Button(action: showAnswers) {
+                Label("Show Me the Answers", systemImage: "eye")
+            }
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Color.surface)
+                .frame(width: 42, height: 38)
+                .background(Color.primaryAction, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .accessibilityLabel("Puzzle menu")
+    }
+
+    private var currentClueControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CurrentClueCard(
+                clue: puzzle.clue(containing: selectedCell, direction: direction),
+                direction: direction
+            )
 
             if let checkResult {
                 PuzzleCheckCard(result: checkResult)
             }
+
+            HStack(spacing: 10) {
+                Button(action: moveToPreviousClue) {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Spacer(minLength: 4)
+                        Text("Previous")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.primaryAction)
+
+                Button(action: moveToNextClue) {
+                    HStack {
+                        Text("Next")
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.primaryAction)
+            }
         }
+    }
+
+    private var clueList: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                ClueList(
+                    title: "Across",
+                    direction: .across,
+                    clues: puzzle.acrossClues,
+                    selectedCell: selectedCell,
+                    recognizedLetters: recognizedLetters,
+                    selectClue: selectClue
+                )
+                ClueList(
+                    title: "Down",
+                    direction: .down,
+                    clues: puzzle.downClues,
+                    selectedCell: selectedCell,
+                    recognizedLetters: recognizedLetters,
+                    selectClue: selectClue
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct DirectionTabs: View {
+    @Binding var selection: CrosswordDirection
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(CrosswordDirection.allCases) { direction in
+                let isSelected = selection == direction
+
+                Button {
+                    selection = direction
+                } label: {
+                    Text(direction.title)
+                        .font(.system(size: 15, weight: isSelected ? .bold : .semibold, design: .serif))
+                        .foregroundStyle(isSelected ? Color.surface : Color.directionText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            isSelected ? Color.directionActive : Color.clear,
+                            in: Capsule()
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Color.directionTrack, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Color.primaryAction.opacity(0.18), lineWidth: 1)
+        }
+    }
+}
+
+private struct PuzzleConfigurationView: View {
+    @Binding var selectedSize: Int
+    @Binding var selectedDifficulty: PuzzleDifficulty
+    let puzzleSizes: [Int]
+    let startPuzzle: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("New puzzle")
+                    .font(.system(size: 30, weight: .bold, design: .serif))
+                    .foregroundStyle(Color.ink)
+
+                Text("Choose your setup.")
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.softInk)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Size")
+                    .font(.system(size: 14, weight: .black, design: .serif))
+                    .foregroundStyle(Color.ink)
+
+                Picker("Puzzle size", selection: $selectedSize) {
+                    ForEach(puzzleSizes, id: \.self) { size in
+                        Text("\(size) x \(size)").tag(size)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Difficulty")
+                    .font(.system(size: 14, weight: .black, design: .serif))
+                    .foregroundStyle(Color.ink)
+
+                Picker("Difficulty", selection: $selectedDifficulty) {
+                    ForEach(PuzzleDifficulty.allCases) { difficulty in
+                        Text(difficulty.title).tag(difficulty)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Button(action: startPuzzle) {
+                Label("Start Puzzle", systemImage: "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(.primaryAction)
+        }
+        .padding(28)
+        .background(Color.appBackground)
+        .presentationDetents([.height(360)])
     }
 }
 
 private struct CompletionView: View {
     @Binding var selectedSize: Int
+    @Binding var selectedDifficulty: PuzzleDifficulty
     let puzzleSizes: [Int]
     let showAnotherPuzzle: () -> Void
 
     var body: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 20) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 46, weight: .bold))
                 .foregroundStyle(Color.successInk)
@@ -1048,12 +1357,21 @@ private struct CompletionView: View {
                     .foregroundStyle(Color.softInk)
             }
 
-            Picker("Puzzle size", selection: $selectedSize) {
-                ForEach(puzzleSizes, id: \.self) { size in
-                    Text("\(size) x \(size)").tag(size)
+            VStack(spacing: 12) {
+                Picker("Puzzle size", selection: $selectedSize) {
+                    ForEach(puzzleSizes, id: \.self) { size in
+                        Text("\(size) x \(size)").tag(size)
+                    }
                 }
+                .pickerStyle(.segmented)
+
+                Picker("Difficulty", selection: $selectedDifficulty) {
+                    ForEach(PuzzleDifficulty.allCases) { difficulty in
+                        Text(difficulty.title).tag(difficulty)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
 
             Button(action: showAnotherPuzzle) {
                 Label("Show Me Another Puzzle", systemImage: "sparkles")
@@ -1065,7 +1383,7 @@ private struct CompletionView: View {
         }
         .padding(28)
         .background(Color.appBackground)
-        .presentationDetents([.height(330)])
+        .presentationDetents([.height(390)])
     }
 }
 
@@ -1102,31 +1420,31 @@ private struct CurrentClueCard: View {
     let direction: CrosswordDirection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-                Text("Current clue")
-                .font(.system(size: 13, weight: .bold, design: .serif))
-                .textCase(.uppercase)
-                .tracking(1.2)
-                .foregroundStyle(Color.primaryAction)
-
+        VStack(alignment: .leading, spacing: 6) {
             if let clue {
-                Text("\(clue.number) \(direction.title) · \(clue.answer.count) letters")
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color.softInk)
+                Text("\(clue.number) \(direction.title)")
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .foregroundStyle(Color.primaryAction)
 
                 Text(clue.text)
-                    .font(.system(size: 21, weight: .bold, design: .serif))
+                    .font(.system(size: 16, weight: .regular, design: .serif))
                     .foregroundStyle(Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.88)
             } else {
                 Text("Tap a white square to start writing.")
-                    .font(.system(size: 19, weight: .semibold, design: .serif))
+                    .font(.system(size: 16, weight: .regular, design: .serif))
                     .foregroundStyle(Color.softInk)
+                    .lineLimit(2)
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primaryContainer.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 82, maxHeight: 82, alignment: .topLeading)
+        .background(Color.currentClueSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primaryAction.opacity(0.15), lineWidth: 1)
+        }
     }
 }
 
@@ -1135,6 +1453,7 @@ private struct ClueList: View {
     let direction: CrosswordDirection
     let clues: [CrosswordClue]
     let selectedCell: CrosswordCoordinate
+    let recognizedLetters: [CrosswordCoordinate: String]
     let selectClue: (CrosswordClue, CrosswordDirection) -> Void
 
     var body: some View {
@@ -1144,6 +1463,11 @@ private struct ClueList: View {
                 .foregroundStyle(Color.ink)
 
             ForEach(clues, id: \.id) { clue in
+                let isCompleted = clue.cells.allSatisfy { coordinate in
+                    recognizedLetters[coordinate]?.isEmpty == false
+                }
+                let isSelected = clue.cells.contains(selectedCell) && !isCompleted
+
                 Button {
                     selectClue(clue, direction)
                 } label: {
@@ -1155,13 +1479,14 @@ private struct ClueList: View {
 
                         Text(clue.text)
                             .font(.system(size: 14, weight: .medium, design: .serif))
-                            .foregroundStyle(clue.cells.contains(selectedCell) ? Color.ink : Color.softInk)
+                            .foregroundStyle(isSelected ? Color.ink : Color.softInk)
 
                         Spacer(minLength: 6)
                     }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 4)
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(isSelected ? Color.selectedClueSurface : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1172,12 +1497,24 @@ private struct ClueList: View {
 
 private struct PaperBackground: View {
     var body: some View {
-        Color.appBackground
+        LinearGradient(
+            colors: [
+                Color.appBackground,
+                Color.paperWarmth,
+                Color.appBackground
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay {
+            Color.paperGrain.opacity(0.16)
+                .blendMode(.multiply)
+        }
         .ignoresSafeArea()
     }
 }
 
-private struct CrosswordPuzzle {
+struct CrosswordPuzzle {
     let size: Int
     let blackCells: Set<CrosswordCoordinate>
     let acrossClues: [CrosswordClue]
@@ -1207,7 +1544,11 @@ private struct CrosswordPuzzle {
         return "\(size):\(cells)"
     }
 
-    static func generated(size: Int) -> CrosswordPuzzle {
+    static func generated(size: Int, seed: Int? = nil, difficulty: PuzzleDifficulty = .easy) -> CrosswordPuzzle {
+        if let puzzle = CrosswordGenerator.generate(size: size, seed: seed, difficulty: difficulty) {
+            return puzzle
+        }
+
         let rows = PuzzleGenerator.rows(size: size)
         let clueBank = PuzzleGenerator.clues(for: rows)
         return CrosswordPuzzle(solutionRows: rows, clueBank: clueBank)
@@ -1408,7 +1749,7 @@ private struct CrosswordPuzzle {
     }
 }
 
-private enum PuzzleCheckResult: Equatable {
+enum PuzzleCheckResult: Equatable {
     case incomplete(missingCount: Int)
     case correct
     case incorrect(incorrectCount: Int)
@@ -1469,7 +1810,7 @@ private enum PuzzleCheckResult: Equatable {
     }
 }
 
-private struct CrosswordClue: Identifiable {
+struct CrosswordClue: Identifiable {
     let number: Int
     let answer: String
     let text: String
@@ -1480,7 +1821,7 @@ private struct CrosswordClue: Identifiable {
     }
 }
 
-private enum PuzzleGenerator {
+    private enum PuzzleGenerator {
     private static let wordSquare = ["HEART", "EMBER", "ABUSE", "RESIN", "TREND"]
 
     private static let clueBank: [String: String] = [
@@ -1566,12 +1907,12 @@ private enum PuzzleGenerator {
     }
 }
 
-private struct CrosswordCoordinate: Hashable {
+struct CrosswordCoordinate: Hashable {
     let row: Int
     let column: Int
 }
 
-private enum CrosswordDirection: String, CaseIterable, Identifiable {
+enum CrosswordDirection: String, CaseIterable, Identifiable {
     case across
     case down
 
@@ -1582,23 +1923,59 @@ private enum CrosswordDirection: String, CaseIterable, Identifiable {
     }
 }
 
+enum PuzzleDifficulty: String, CaseIterable, Identifiable {
+    case easy
+    case medium
+    case hard
+
+    var id: String { rawValue }
+
+    var title: String {
+        rawValue.capitalized
+    }
+
+    var seedOffset: Int {
+        switch self {
+        case .easy:
+            100
+        case .medium:
+            200
+        case .hard:
+            300
+        }
+    }
+}
+
 private extension Color {
-    static let appBackground = Color(red: 0.97, green: 0.98, blue: 0.97)
-    static let surface = Color(red: 1.00, green: 1.00, blue: 1.00)
-    static let surfaceVariant = Color(red: 0.91, green: 0.94, blue: 0.92)
-    static let ink = Color(red: 0.10, green: 0.13, blue: 0.13)
-    static let softInk = Color(red: 0.39, green: 0.43, blue: 0.42)
-    static let primaryAction = Color(red: 0.00, green: 0.42, blue: 0.42)
-    static let primaryContainer = Color(red: 0.74, green: 0.93, blue: 0.90)
-    static let secondaryContainer = Color(red: 0.88, green: 0.92, blue: 0.89)
-    static let block = Color(red: 0.15, green: 0.20, blue: 0.20)
-    static let gridLine = Color(red: 0.72, green: 0.76, blue: 0.74)
-    static let hairline = Color(red: 0.78, green: 0.82, blue: 0.80).opacity(0.70)
-    static let shadow = Color(red: 0.06, green: 0.09, blue: 0.09)
-    static let warningInk = Color(red: 0.49, green: 0.34, blue: 0.06)
+    static let appBackground = Color(red: 0.96, green: 0.965, blue: 0.94)
+    static let paperWarmth = Color(red: 0.98, green: 0.94, blue: 0.86)
+    static let paperGrain = Color(red: 0.74, green: 0.68, blue: 0.58)
+    static let surface = Color(red: 1.00, green: 0.995, blue: 0.965)
+    static let actionSurface = Color(red: 0.98, green: 0.985, blue: 0.965)
+    static let surfaceVariant = Color(red: 0.91, green: 0.925, blue: 0.89)
+    static let ink = Color(red: 0.11, green: 0.12, blue: 0.12)
+    static let softInk = Color(red: 0.42, green: 0.42, blue: 0.38)
+    static let primaryAction = Color(red: 0.12, green: 0.43, blue: 0.43)
+    static let primaryContainer = Color(red: 0.80, green: 0.90, blue: 0.86)
+    static let currentClueSurface = Color(red: 0.88, green: 0.94, blue: 0.90)
+    static let timerSurface = Color(red: 0.95, green: 0.96, blue: 0.91)
+    static let directionTrack = Color(red: 0.73, green: 0.88, blue: 0.86)
+    static let directionText = Color(red: 0.11, green: 0.42, blue: 0.42)
+    static let directionInactive = Color(red: 0.35, green: 0.62, blue: 0.61)
+    static let directionActive = Color(red: 0.13, green: 0.50, blue: 0.50)
+    static let secondaryContainer = Color(red: 0.88, green: 0.91, blue: 0.86)
+    static let selectedClueSurface = Color(red: 0.94, green: 0.90, blue: 0.80)
+    static let boardWarmth = Color(red: 0.98, green: 0.93, blue: 0.84)
+    static let boardEdge = Color(red: 0.42, green: 0.36, blue: 0.28).opacity(0.34)
+    static let block = Color(red: 0.13, green: 0.16, blue: 0.16)
+    static let gridLine = Color(red: 0.65, green: 0.66, blue: 0.60)
+    static let clueNumber = Color(red: 0.44, green: 0.39, blue: 0.32)
+    static let hairline = Color(red: 0.70, green: 0.70, blue: 0.62).opacity(0.72)
+    static let shadow = Color(red: 0.11, green: 0.10, blue: 0.08)
+    static let warningInk = Color(red: 0.52, green: 0.34, blue: 0.05)
     static let warningSurface = Color(red: 0.98, green: 0.90, blue: 0.68)
-    static let successInk = Color(red: 0.00, green: 0.39, blue: 0.20)
-    static let successSurface = Color(red: 0.77, green: 0.91, blue: 0.80)
+    static let successInk = Color(red: 0.08, green: 0.39, blue: 0.22)
+    static let successSurface = Color(red: 0.78, green: 0.91, blue: 0.80)
 }
 
 struct ContentView_Previews: PreviewProvider {

@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		07DC4171CAB7C88C6B63DAB2 /* Pods_crosswordapp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AFC8AF651EBD8EC835723BC6 /* Pods_crosswordapp.framework */; };
+		A1B2C3D4E5F6010102030408 /* CrosswordGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */; };
+		A1B2C3D4E5F601010203040A /* crossword_entries.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F601010203040B /* crossword_entries.json */; };
 		A1B2C3D4E5F6010102030405 /* CrosswordAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030401 /* CrosswordAppApp.swift */; };
 		A1B2C3D4E5F6010102030406 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030402 /* ContentView.swift */; };
 		A1B2C3D4E5F6010102030407 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030403 /* Assets.xcassets */; };
@@ -20,6 +22,8 @@
 		A1B2C3D4E5F6010102030402 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010102030403 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010102030404 /* crosswordapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = crosswordapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrosswordGenerator.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F601010203040B /* crossword_entries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = crossword_entries.json; sourceTree = "<group>"; };
 		AFC8AF651EBD8EC835723BC6 /* Pods_crosswordapp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_crosswordapp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -60,6 +64,8 @@
 			children = (
 				A1B2C3D4E5F6010102030401 /* CrosswordAppApp.swift */,
 				A1B2C3D4E5F6010102030402 /* ContentView.swift */,
+				A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */,
+				A1B2C3D4E5F601010203040B /* crossword_entries.json */,
 				A1B2C3D4E5F6010102030403 /* Assets.xcassets */,
 			);
 			path = crosswordapp;
@@ -143,6 +149,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D4E5F6010102030407 /* Assets.xcassets in Resources */,
+				A1B2C3D4E5F601010203040A /* crossword_entries.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -214,6 +221,7 @@
 			files = (
 				A1B2C3D4E5F6010102030405 /* CrosswordAppApp.swift in Sources */,
 				A1B2C3D4E5F6010102030406 /* ContentView.swift in Sources */,
+				A1B2C3D4E5F6010102030408 /* CrosswordGenerator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
