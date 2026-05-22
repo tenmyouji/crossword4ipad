@@ -1,7 +1,11 @@
 import PencilKit
 import SwiftUI
 import UIKit
-import Vision
+
+#if canImport(MLKitDigitalInkRecognition)
+import MLKitCommon
+import MLKitDigitalInkRecognition
+#endif
 
 struct ContentView: View {
     @State private var selectedCell = CrosswordCoordinate(row: 0, column: 0)
@@ -12,6 +16,7 @@ struct ContentView: View {
     @State private var nextPuzzleSize = 5
     @State private var isShowingCompletionSheet = false
     @State private var puzzleStartedAt = Date()
+    @State private var boardInputResetID = 0
 
     private let puzzleSizes = [5, 10, 15]
 
@@ -28,6 +33,7 @@ struct ContentView: View {
                         selectedCell: $selectedCell,
                         direction: direction,
                         recognizedLetters: $recognizedLetters,
+                        resetID: boardInputResetID,
                         onSelectCell: selectCell,
                         onRecognizedLetter: storeRecognizedLetter
                     )
@@ -75,6 +81,7 @@ struct ContentView: View {
     private func clearPuzzle() {
         recognizedLetters.removeAll()
         checkResult = nil
+        boardInputResetID += 1
     }
 
     private func storeRecognizedLetter(_ letter: String?, at coordinate: CrosswordCoordinate) {
@@ -177,11 +184,13 @@ struct ContentView: View {
         selectedCell = puzzle.playableCoordinates.first ?? selectedCell
         direction = .across
         puzzleStartedAt = Date()
+        boardInputResetID += 1
     }
 
     private func showAnswers() {
         recognizedLetters = puzzle.solutionLetters
         checkResult = .correct
+        boardInputResetID += 1
     }
 
     private func showAnotherPuzzle() {
@@ -196,6 +205,7 @@ struct ContentView: View {
         recognizedLetters.removeAll()
         checkResult = nil
         puzzleStartedAt = Date()
+        boardInputResetID += 1
     }
 }
 
@@ -255,6 +265,7 @@ private struct CrosswordBoard: View {
     @Binding var selectedCell: CrosswordCoordinate
     let direction: CrosswordDirection
     @Binding var recognizedLetters: [CrosswordCoordinate: String]
+    let resetID: Int
     let onSelectCell: (CrosswordCoordinate) -> Void
     let onRecognizedLetter: (String?, CrosswordCoordinate) -> Void
 
@@ -276,7 +287,6 @@ private struct CrosswordBoard: View {
                         CrosswordCell(
                             puzzle: puzzle,
                             coordinate: coordinate,
-                            isSelected: coordinate == selectedCell,
                             isHighlighted: selectedAnswer.contains(coordinate),
                             recognizedLetter: recognizedLetters[coordinate]
                         )
@@ -292,6 +302,7 @@ private struct CrosswordBoard: View {
                     puzzle: puzzle,
                     selectedCell: $selectedCell,
                     recognizedLetters: recognizedLetters,
+                    resetID: resetID,
                     onSelectCell: onSelectCell,
                     onRecognizedLetter: onRecognizedLetter
                 )
@@ -307,7 +318,6 @@ private struct CrosswordBoard: View {
 private struct CrosswordCell: View {
     let puzzle: CrosswordPuzzle
     let coordinate: CrosswordCoordinate
-    let isSelected: Bool
     let isHighlighted: Bool
     let recognizedLetter: String?
 
@@ -336,18 +346,13 @@ private struct CrosswordCell: View {
         }
         .overlay(alignment: .center) {
             Rectangle()
-                .stroke(isSelected ? Color.primaryAction : Color.gridLine, lineWidth: isSelected ? 2.6 : 0.8)
+                .stroke(Color.gridLine, lineWidth: 0.8)
         }
-        .animation(.spring(response: 0.24, dampingFraction: 0.84), value: isSelected)
     }
 
     private var fillStyle: Color {
         if !puzzle.isPlayable(coordinate) {
             return .block
-        }
-
-        if isSelected {
-            return .primaryContainer
         }
 
         if isHighlighted {
@@ -363,6 +368,7 @@ private struct BoardInputLayer: UIViewRepresentable {
     let puzzle: CrosswordPuzzle
     @Binding var selectedCell: CrosswordCoordinate
     let recognizedLetters: [CrosswordCoordinate: String]
+    let resetID: Int
     let onSelectCell: (CrosswordCoordinate) -> Void
     let onRecognizedLetter: (String?, CrosswordCoordinate) -> Void
 
@@ -371,22 +377,26 @@ private struct BoardInputLayer: UIViewRepresentable {
             puzzle: puzzle,
             selectedCell: selectedCell,
             recognizedLetters: recognizedLetters,
+            resetID: resetID,
             onSelect: onSelectCell,
             onRecognizedLetter: onRecognizedLetter
         )
     }
 
     func updateUIView(_ view: BoardInputView, context: Context) {
-        view.puzzle = puzzle
+        if view.hasDifferentLayout(from: puzzle) {
+            view.puzzle = puzzle
+        }
         view.selectedCell = selectedCell
         view.recognizedLetters = recognizedLetters
+        view.resetID = resetID
         view.onSelect = onSelectCell
         view.onRecognizedLetter = onRecognizedLetter
         view.setNeedsLayout()
     }
 }
 
-private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextFieldDelegate {
+private final class BoardInputView: UIView, UIGestureRecognizerDelegate, PKCanvasViewDelegate {
     var puzzle: CrosswordPuzzle {
         didSet {
             reconcileCellStates()
@@ -402,7 +412,15 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
 
     var recognizedLetters: [CrosswordCoordinate: String] {
         didSet {
-            syncCellStates()
+            guard recognizedLetters != oldValue else { return }
+            syncCellStates(changedFrom: oldValue)
+        }
+    }
+
+    var resetID: Int {
+        didSet {
+            guard resetID != oldValue else { return }
+            clearAllInk()
         }
     }
 
@@ -410,26 +428,20 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
     var onRecognizedLetter: (String?, CrosswordCoordinate) -> Void
 
     private var cellStates: [CrosswordCoordinate: CellInputState] = [:]
-    private lazy var pencilRecognizer: UIPanGestureRecognizer = {
-        let recognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePencilPan(_:)))
-        recognizer.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
-        recognizer.cancelsTouchesInView = false
-        recognizer.delegate = self
-        return recognizer
-    }()
     private var activeInkCoordinate: CrosswordCoordinate?
-    private var activeStrokePoints: [CGPoint] = []
 
     init(
         puzzle: CrosswordPuzzle,
         selectedCell: CrosswordCoordinate,
         recognizedLetters: [CrosswordCoordinate: String],
+        resetID: Int,
         onSelect: @escaping (CrosswordCoordinate) -> Void,
         onRecognizedLetter: @escaping (String?, CrosswordCoordinate) -> Void
     ) {
         self.puzzle = puzzle
         self.selectedCell = selectedCell
         self.recognizedLetters = recognizedLetters
+        self.resetID = resetID
         self.onSelect = onSelect
         self.onRecognizedLetter = onRecognizedLetter
         super.init(frame: .zero)
@@ -438,7 +450,6 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
         isMultipleTouchEnabled = true
 
         reconcileCellStates()
-        addGestureRecognizer(pencilRecognizer)
 
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         tapRecognizer.cancelsTouchesInView = false
@@ -457,7 +468,6 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
         for (coordinate, state) in cellStates {
             let frame = frame(for: coordinate, cellSize: cellSize)
             state.canvas.frame = frame
-            state.textField.frame = frame
         }
     }
 
@@ -473,14 +483,9 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
 
         guard puzzle.isPlayable(coordinate) else { return }
         onSelect(coordinate)
-        focusTextField(at: coordinate)
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        if gestureRecognizer === pencilRecognizer {
-            return touch.type == .pencil
-        }
-
         return touch.type != .pencil
     }
 
@@ -505,51 +510,36 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
         let staleCoordinates = cellStates.keys.filter { !playableCoordinates.contains($0) }
 
         for coordinate in staleCoordinates {
-            cellStates[coordinate]?.pendingTask?.cancel()
+            cellStates[coordinate]?.clearInk()
             cellStates[coordinate]?.canvas.removeFromSuperview()
-            cellStates[coordinate]?.textField.removeFromSuperview()
             cellStates.removeValue(forKey: coordinate)
         }
 
         for coordinate in playableCoordinates where cellStates[coordinate] == nil {
-            let textField = ScribbleCellTextField(coordinate: coordinate)
-            configure(textField)
-            textField.text = recognizedLetters[coordinate] ?? ""
             let canvas = CellCanvasView(coordinate: coordinate)
             configure(canvas)
-            let state = CellInputState(coordinate: coordinate, textField: textField, canvas: canvas)
+            let state = CellInputState(coordinate: coordinate, canvas: canvas)
             cellStates[coordinate] = state
             addSubview(canvas)
-            addSubview(textField)
         }
-
-        syncCellStates()
     }
 
-    private func configure(_ textField: ScribbleCellTextField) {
-        textField.delegate = self
-        textField.autocapitalizationType = .allCharacters
-        textField.autocorrectionType = .no
-        textField.spellCheckingType = .no
-        textField.smartDashesType = .no
-        textField.smartInsertDeleteType = .no
-        textField.smartQuotesType = .no
-        textField.keyboardType = .asciiCapable
-        textField.textColor = .clear
-        textField.tintColor = .clear
-        textField.backgroundColor = .clear
-        textField.isOpaque = false
-        textField.inputView = UIView(frame: .zero)
-        textField.inputAssistantItem.leadingBarButtonGroups = []
-        textField.inputAssistantItem.trailingBarButtonGroups = []
-        textField.addTarget(self, action: #selector(textFieldEditingChanged(_:)), for: .editingChanged)
+    func hasDifferentLayout(from puzzle: CrosswordPuzzle) -> Bool {
+        self.puzzle.layoutSignature != puzzle.layoutSignature
+    }
+
+    func clearAllInk() {
+        for (_, state) in cellStates {
+            state.clearInk()
+        }
     }
 
     private func configure(_ canvas: CellCanvasView) {
         canvas.backgroundColor = .clear
         canvas.isOpaque = false
         canvas.clipsToBounds = true
-        canvas.isUserInteractionEnabled = false
+        canvas.isUserInteractionEnabled = true
+        canvas.delegate = self
         canvas.overrideUserInterfaceStyle = .light
         canvas.drawingPolicy = .pencilOnly
         canvas.tool = PKInkingTool(.pen, color: Self.writingInk, width: Self.strokeWidth)
@@ -559,177 +549,61 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
         canvas.isScrollEnabled = false
     }
 
-    private func syncCellStates() {
-        for (coordinate, state) in cellStates {
-            if !state.textField.isFirstResponder {
-                state.textField.text = recognizedLetters[coordinate] ?? ""
-            }
+    private func syncCellStates(changedFrom previousRecognizedLetters: [CrosswordCoordinate: String]? = nil) {
+        guard let previousRecognizedLetters else {
+            clearAllInk()
+            return
+        }
+
+        let changedCoordinates = Set(previousRecognizedLetters.keys).union(recognizedLetters.keys)
+        for coordinate in changedCoordinates where previousRecognizedLetters[coordinate] != recognizedLetters[coordinate] {
+            guard let state = cellStates[coordinate] else { continue }
             state.clearInk()
         }
     }
 
-    @objc private func textFieldEditingChanged(_ textField: UITextField) {
-        commit(textField)
+    func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+        guard let canvas = canvasView as? CellCanvasView,
+              let state = cellStates[canvas.coordinate],
+              !state.isClearingInk,
+              !canvas.drawing.bounds.isEmpty else {
+            return
+        }
+
+        finishActiveInkIfNeeded(excluding: canvas.coordinate)
+        activeInkCoordinate = canvas.coordinate
+        state.drawing = canvas.drawing
+        selectForWriting(at: canvas.coordinate)
+        scheduleResolution(for: canvas.coordinate)
     }
 
-    private func commit(_ textField: UITextField) {
-        guard let textField = textField as? ScribbleCellTextField else { return }
-        let coordinate = textField.coordinate
-        guard let state = cellStates[coordinate] else { return }
+    private func selectForWriting(at coordinate: CrosswordCoordinate) {
+        guard coordinate != selectedCell else { return }
         onSelect(coordinate)
-
-        guard let letter = Self.lastLetter(in: textField.text ?? "") else {
-            textField.text = ""
-            state.scribbleCandidate = nil
-            scheduleResolution(for: coordinate)
-            return
-        }
-
-        textField.text = letter
-        state.scribbleCandidate = letter
-        scheduleResolution(for: coordinate)
-    }
-
-    func textFieldShouldClear(_ textField: UITextField) -> Bool {
-        if let textField = textField as? ScribbleCellTextField {
-            onRecognizedLetter(nil, textField.coordinate)
-        }
-        return true
-    }
-
-    func textFieldDidBeginEditing(_ textField: UITextField) {
-        guard let textField = textField as? ScribbleCellTextField else { return }
-        textField.text = recognizedLetters[textField.coordinate] ?? ""
-        onSelect(textField.coordinate)
-        selectAllText(in: textField)
-    }
-
-    func textField(
-        _ textField: UITextField,
-        shouldChangeCharactersIn range: NSRange,
-        replacementString string: String
-    ) -> Bool {
-        guard let textField = textField as? ScribbleCellTextField else {
-            return true
-        }
-
-        if string.isEmpty {
-            textField.text = ""
-            onSelect(textField.coordinate)
-            cellStates[textField.coordinate]?.scribbleCandidate = nil
-            cellStates[textField.coordinate]?.clearInk()
-            onRecognizedLetter(nil, textField.coordinate)
-            return false
-        }
-
-        guard let letter = Self.lastLetter(in: string) ?? Self.lastLetter(in: textField.text ?? "") else {
-            textField.text = ""
-            onSelect(textField.coordinate)
-            cellStates[textField.coordinate]?.scribbleCandidate = nil
-            scheduleResolution(for: textField.coordinate)
-            return false
-        }
-
-        textField.text = letter
-        onSelect(textField.coordinate)
-        cellStates[textField.coordinate]?.scribbleCandidate = letter
-        scheduleResolution(for: textField.coordinate)
-        return false
-    }
-
-    private func focusTextField(at coordinate: CrosswordCoordinate) {
-        guard let textField = cellStates[coordinate]?.textField else { return }
-        textField.text = recognizedLetters[coordinate] ?? ""
-        textField.becomeFirstResponder()
-        selectAllText(in: textField)
-    }
-
-    private func selectAllText(in textField: UITextField) {
-        guard let start = textField.beginningOfDocument as UITextPosition?,
-              let end = textField.endOfDocument as UITextPosition? else {
-            return
-        }
-
-        textField.selectedTextRange = textField.textRange(from: start, to: end)
-    }
-
-    @objc private func handlePencilPan(_ recognizer: UIPanGestureRecognizer) {
-        let location = recognizer.location(in: self)
-
-        switch recognizer.state {
-        case .began:
-            guard let coordinate = coordinate(at: location) else { return }
-            finishActiveInkIfNeeded(excluding: coordinate)
-            activeInkCoordinate = coordinate
-            activeStrokePoints = [pointInCell(from: location, coordinate: coordinate)]
-            onSelect(coordinate)
-            focusTextField(at: coordinate)
-            cellStates[coordinate]?.pendingTask?.cancel()
-            cellStates[coordinate]?.scribbleCandidate = nil
-            updateDrawing(for: coordinate)
-        case .changed:
-            guard let coordinate = activeInkCoordinate else { return }
-            activeStrokePoints.append(pointInCell(from: location, coordinate: coordinate))
-            updateDrawing(for: coordinate)
-            scheduleResolution(for: coordinate)
-        case .ended, .cancelled, .failed:
-            guard let coordinate = activeInkCoordinate else { return }
-            activeStrokePoints.append(pointInCell(from: location, coordinate: coordinate))
-            updateDrawing(for: coordinate)
-            if activeStrokePoints.count > 1 {
-                cellStates[coordinate]?.strokes.append(activeStrokePoints)
-            }
-            scheduleResolution(for: coordinate)
-            activeInkCoordinate = nil
-            activeStrokePoints = []
-        default:
-            break
-        }
     }
 
     private func finishActiveInkIfNeeded(excluding coordinate: CrosswordCoordinate) {
         guard let activeInkCoordinate, activeInkCoordinate != coordinate else { return }
         scheduleResolution(for: activeInkCoordinate, delay: 0.05)
         self.activeInkCoordinate = nil
-        activeStrokePoints = []
     }
 
-    private func coordinate(at location: CGPoint) -> CrosswordCoordinate? {
-        let cellSize = min(bounds.width, bounds.height) / CGFloat(puzzle.size)
-        guard cellSize > 0 else { return nil }
-        let coordinate = CrosswordCoordinate(
-            row: Int(location.y / cellSize),
-            column: Int(location.x / cellSize)
-        )
-
-        return puzzle.isPlayable(coordinate) ? coordinate : nil
-    }
-
-    private func pointInCell(from location: CGPoint, coordinate: CrosswordCoordinate) -> CGPoint {
-        let cellSize = min(bounds.width, bounds.height) / CGFloat(puzzle.size)
-        let cellFrame = frame(for: coordinate, cellSize: cellSize)
-        let x = min(max(location.x - cellFrame.minX, 0), cellFrame.width)
-        let y = min(max(location.y - cellFrame.minY, 0), cellFrame.height)
-        return CGPoint(x: x, y: y)
-    }
-
-    private func updateDrawing(for coordinate: CrosswordCoordinate) {
-        guard let state = cellStates[coordinate], activeStrokePoints.count > 1 else { return }
-        let drawing = Self.drawing(from: state.strokes + [activeStrokePoints])
-        state.drawing = drawing
-        state.canvas.drawing = drawing
-    }
-
-    private func scheduleResolution(for coordinate: CrosswordCoordinate, delay: TimeInterval = 0.95) {
+    private func scheduleResolution(for coordinate: CrosswordCoordinate, delay: TimeInterval = 1.6) {
         guard let state = cellStates[coordinate] else { return }
         state.pendingTask?.cancel()
         state.recognitionGeneration += 1
         let generation = state.recognitionGeneration
+        let hasInk = !state.drawing.bounds.isEmpty
+
+        guard hasInk else {
+            state.pendingTask = nil
+            return
+        }
 
         let task = DispatchWorkItem { [weak self, weak state] in
             guard let self, let state else { return }
             let drawing = state.drawing
-            Self.recognizeLetter(in: drawing) { [weak self, weak state] ocrLetter in
+            Self.recognizeLetter(in: drawing) { [weak self, weak state] result in
                 DispatchQueue.main.async {
                     guard let self,
                           let state,
@@ -738,7 +612,8 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
                         return
                     }
                     state.pendingTask = nil
-                    self.resolve(coordinate: coordinate, ocrLetter: ocrLetter)
+                    state.lastRecognitionDebug = result.debugDescription
+                    self.resolve(coordinate: coordinate, result: result)
                 }
             }
         }
@@ -747,24 +622,18 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
     }
 
-    private func resolve(coordinate: CrosswordCoordinate, ocrLetter: String?) {
+    private func resolve(coordinate: CrosswordCoordinate, result: HandwritingRecognitionResult) {
         guard let state = cellStates[coordinate] else { return }
-        let scribbleLetter = state.scribbleCandidate
-        let resolvedLetter: String?
 
-        switch (scribbleLetter, ocrLetter) {
-        case let (scribble?, ocr?) where scribble == ocr:
-            resolvedLetter = scribble
-        case let (scribble?, nil):
-            resolvedLetter = scribble
-        case let (nil, ocr?):
-            resolvedLetter = ocr
-        default:
-            resolvedLetter = nil
+        guard let resolvedLetter = result.letter else {
+            Self.debugLog("Recognition kept ink at \(coordinate.row),\(coordinate.column): \(result.debugDescription)")
+            return
         }
 
         state.clearRecognition()
-        state.textField.text = resolvedLetter ?? ""
+        if activeInkCoordinate == coordinate {
+            activeInkCoordinate = nil
+        }
         onRecognizedLetter(resolvedLetter, coordinate)
     }
 
@@ -782,100 +651,214 @@ private final class BoardInputView: UIView, UIGestureRecognizerDelegate, UITextF
         }.map(String.init)
     }
 
-    private static func drawing(from strokes: [[CGPoint]]) -> PKDrawing {
-        let ink = PKInk(.pen, color: writingInk)
-        let pkStrokes = strokes.compactMap { points -> PKStroke? in
-            guard points.count > 1 else { return nil }
-            let strokePoints = points.enumerated().map { index, point in
-                PKStrokePoint(
-                    location: point,
-                    timeOffset: TimeInterval(index) * 0.015,
-                    size: CGSize(width: strokeWidth, height: strokeWidth),
-                    opacity: 1,
-                    force: 1,
-                    azimuth: 0,
-                    altitude: .pi / 2
-                )
-            }
-            let path = PKStrokePath(controlPoints: strokePoints, creationDate: Date())
-            return PKStroke(ink: ink, path: path)
-        }
-
-        return PKDrawing(strokes: pkStrokes)
+    fileprivate static func bestSingleLetter(from candidates: [String]) -> String? {
+        candidates.compactMap(singleLetter(in:)).first ?? candidates.compactMap(lastLetter(in:)).first
     }
 
-    private static func recognizeLetter(in drawing: PKDrawing, completion: @escaping (String?) -> Void) {
-        guard !drawing.bounds.isEmpty,
-              let cgImage = renderedRecognitionImage(from: drawing).cgImage else {
-            completion(nil)
-            return
-        }
-
-        let request = VNRecognizeTextRequest { request, _ in
-            let candidates = (request.results as? [VNRecognizedTextObservation])?
-                .flatMap { observation in
-                    observation.topCandidates(3).map(\.string)
-                } ?? []
-            completion(candidates.compactMap(lastLetter(in:)).first)
-        }
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = false
-        request.minimumTextHeight = 0.01
-        request.recognitionLanguages = ["en-US"]
-        request.customWords = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").map(String.init)
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
-            } catch {
-                completion(nil)
+    private static func singleLetter(in text: String) -> String? {
+        let letters = text
+            .uppercased()
+            .filter { character in
+                character >= "A" && character <= "Z"
             }
-        }
+        return letters.count == 1 ? String(letters[letters.startIndex]) : nil
     }
 
-    private static func renderedRecognitionImage(from drawing: PKDrawing) -> UIImage {
-        let sideLength: CGFloat = 256
-        let padding: CGFloat = 28
-        let drawingBounds = drawing.bounds.insetBy(dx: -16, dy: -16)
-        let sourceImage = drawing.image(from: drawingBounds, scale: 4)
+    private static func recognizeLetter(in drawing: PKDrawing, completion: @escaping (HandwritingRecognitionResult) -> Void) {
+        recognizeLetterWithDigitalInkIfAvailable(in: drawing, completion: completion)
+    }
 
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: sideLength, height: sideLength), format: format)
-
-        return renderer.image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: sideLength, height: sideLength))
-
-            let available = sideLength - padding * 2
-            let scale = min(available / max(sourceImage.size.width, 1), available / max(sourceImage.size.height, 1))
-            let imageSize = CGSize(width: sourceImage.size.width * scale, height: sourceImage.size.height * scale)
-            let imageOrigin = CGPoint(x: (sideLength - imageSize.width) / 2, y: (sideLength - imageSize.height) / 2)
-            sourceImage.draw(in: CGRect(origin: imageOrigin, size: imageSize), blendMode: .normal, alpha: 1)
-        }
+    private static func recognizeLetterWithDigitalInkIfAvailable(
+        in drawing: PKDrawing,
+        completion: @escaping (HandwritingRecognitionResult) -> Void
+    ) {
+        #if canImport(MLKitDigitalInkRecognition)
+        digitalInkRecognizer.recognize(drawing: drawing, completion: completion)
+        #else
+        completion(HandwritingRecognitionResult(letter: nil, debugDescription: "ML Kit Digital Ink unavailable"))
+        #endif
     }
 
     private static let strokeWidth: CGFloat = 8
     private static let writingInk = UIColor(red: 0.05, green: 0.06, blue: 0.06, alpha: 1)
+    #if canImport(MLKitDigitalInkRecognition)
+    private static let digitalInkRecognizer = DigitalInkLetterRecognizer()
+    #endif
+
+    fileprivate static func debugLog(_ message: String) {
+        #if DEBUG
+        print("[Crossword Handwriting] \(message)")
+        #endif
+    }
+
 }
 
-private final class ScribbleCellTextField: UITextField {
-    let coordinate: CrosswordCoordinate
+private struct HandwritingRecognitionResult {
+    let letter: String?
+    let debugDescription: String
+}
 
-    init(coordinate: CrosswordCoordinate) {
-        self.coordinate = coordinate
-        super.init(frame: .zero)
+#if canImport(MLKitDigitalInkRecognition)
+private final class DigitalInkLetterRecognizer {
+    private let model: DigitalInkRecognitionModel?
+    private let recognizer: DigitalInkRecognizer?
+    private let modelManager = ModelManager.modelManager()
+    private let modelDownloadConditions = ModelDownloadConditions(
+        allowsCellularAccess: true,
+        allowsBackgroundDownloading: true
+    )
+    private var isDownloadingModel = false
+    private var pendingCompletions: [(Error?) -> Void] = []
+    private var notificationObservers: [NSObjectProtocol] = []
+
+    init() {
+        guard let identifier = DigitalInkRecognitionModelIdentifier(forLanguageTag: "en-US") else {
+            model = nil
+            recognizer = nil
+            BoardInputView.debugLog("ML Kit Digital Ink model identifier unavailable for en-US")
+            return
+        }
+
+        let model = DigitalInkRecognitionModel(modelIdentifier: identifier)
+        self.model = model
+        recognizer = DigitalInkRecognizer.digitalInkRecognizer(
+            options: DigitalInkRecognizerOptions(model: model)
+        )
+        observeModelDownloadNotifications()
+        downloadModelIfNeeded()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    deinit {
+        notificationObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
-    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        false
+    func recognize(drawing: PKDrawing, completion: @escaping (HandwritingRecognitionResult) -> Void) {
+        guard let model, let recognizer else {
+            completion(HandwritingRecognitionResult(letter: nil, debugDescription: "ML Kit Digital Ink not initialized"))
+            return
+        }
+
+        let ink = Self.ink(from: drawing)
+        guard !ink.strokes.isEmpty else {
+            completion(HandwritingRecognitionResult(letter: nil, debugDescription: "ML Kit Digital Ink received no strokes"))
+            return
+        }
+
+        if modelManager.isModelDownloaded(model) {
+            recognize(ink: ink, recognizer: recognizer, completion: completion)
+            return
+        }
+
+        downloadModelIfNeeded()
+        let debugDescription = "ML Kit Digital Ink model is downloading"
+        BoardInputView.debugLog(debugDescription)
+        completion(HandwritingRecognitionResult(letter: nil, debugDescription: debugDescription))
+    }
+
+    private func recognize(
+        ink: Ink,
+        recognizer: DigitalInkRecognizer,
+        completion: @escaping (HandwritingRecognitionResult) -> Void
+    ) {
+        recognizer.recognize(ink: ink) { result, error in
+            if let error {
+                let debugDescription = "ML Kit Digital Ink error=\(error.localizedDescription)"
+                BoardInputView.debugLog(debugDescription)
+                completion(HandwritingRecognitionResult(letter: nil, debugDescription: debugDescription))
+                return
+            }
+
+            let candidates = result?.candidates.map(\.text) ?? []
+            let letter = BoardInputView.bestSingleLetter(from: candidates)
+            let debugDescription = "ML Kit Digital Ink candidates=\(candidates), letter=\(letter ?? "nil")"
+            BoardInputView.debugLog(debugDescription)
+            completion(HandwritingRecognitionResult(letter: letter, debugDescription: debugDescription))
+        }
+    }
+
+    private func downloadModelIfNeeded(completion: ((Error?) -> Void)? = nil) {
+        guard let model, !modelManager.isModelDownloaded(model) else {
+            completion?(nil)
+            return
+        }
+
+        if let completion {
+            pendingCompletions.append(completion)
+        }
+
+        if isDownloadingModel {
+            return
+        }
+
+        isDownloadingModel = true
+        _ = modelManager.download(model, conditions: modelDownloadConditions)
+        BoardInputView.debugLog("ML Kit Digital Ink en-US model download started")
+    }
+
+    private func observeModelDownloadNotifications() {
+        let center = NotificationCenter.default
+        notificationObservers.append(
+            center.addObserver(
+                forName: .mlkitModelDownloadDidSucceed,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                self?.handleModelDownload(notification: notification, error: nil)
+            }
+        )
+        notificationObservers.append(
+            center.addObserver(
+                forName: .mlkitModelDownloadDidFail,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                let error = notification.userInfo?[ModelDownloadUserInfoKey.error] as? Error
+                self?.handleModelDownload(notification: notification, error: error)
+            }
+        )
+    }
+
+    private func handleModelDownload(notification: Notification, error: Error?) {
+        guard let model,
+              let downloadedModel = notification.userInfo?[ModelDownloadUserInfoKey.remoteModel] as? RemoteModel,
+              downloadedModel.name == model.name else {
+            return
+        }
+
+        isDownloadingModel = false
+        let completions = pendingCompletions
+        pendingCompletions.removeAll()
+
+        if let error {
+            BoardInputView.debugLog("ML Kit Digital Ink model download failed: \(error.localizedDescription)")
+        } else {
+            BoardInputView.debugLog("ML Kit Digital Ink en-US model downloaded")
+        }
+
+        completions.forEach { $0(error) }
+    }
+
+    private static func ink(from drawing: PKDrawing) -> Ink {
+        var currentTime = 0
+        let strokes = drawing.strokes.compactMap { stroke -> Stroke? in
+            var lastPointTime = currentTime
+            let points = stroke.path.map { strokePoint -> StrokePoint in
+                let time = currentTime + Int(strokePoint.timeOffset * 1000)
+                lastPointTime = time
+                return StrokePoint(
+                    x: Float(strokePoint.location.x),
+                    y: Float(strokePoint.location.y),
+                    t: time
+                )
+            }
+            currentTime = lastPointTime + 50
+            return points.isEmpty ? nil : Stroke(points: points)
+        }
+
+        return Ink(strokes: strokes)
     }
 }
+#endif
 
 private final class CellCanvasView: PKCanvasView {
     let coordinate: CrosswordCoordinate
@@ -892,31 +875,29 @@ private final class CellCanvasView: PKCanvasView {
 
 private final class CellInputState {
     let coordinate: CrosswordCoordinate
-    let textField: ScribbleCellTextField
     let canvas: CellCanvasView
-    var scribbleCandidate: String?
-    var strokes: [[CGPoint]] = []
     var drawing = PKDrawing()
     var pendingTask: DispatchWorkItem?
     var recognitionGeneration = 0
+    var isClearingInk = false
+    var lastRecognitionDebug = ""
 
-    init(coordinate: CrosswordCoordinate, textField: ScribbleCellTextField, canvas: CellCanvasView) {
+    init(coordinate: CrosswordCoordinate, canvas: CellCanvasView) {
         self.coordinate = coordinate
-        self.textField = textField
         self.canvas = canvas
     }
 
     func clearInk() {
-        strokes = []
         drawing = PKDrawing()
+        isClearingInk = true
         canvas.drawing = drawing
+        isClearingInk = false
         pendingTask?.cancel()
         pendingTask = nil
         recognitionGeneration += 1
     }
 
     func clearRecognition() {
-        scribbleCandidate = nil
         clearInk()
     }
 }
@@ -1217,6 +1198,13 @@ private struct CrosswordPuzzle {
 
             return $0.row < $1.row
         }
+    }
+
+    var layoutSignature: String {
+        let cells = playableCoordinates
+            .map { "\($0.row),\($0.column)" }
+            .joined(separator: "|")
+        return "\(size):\(cells)"
     }
 
     static func generated(size: Int) -> CrosswordPuzzle {

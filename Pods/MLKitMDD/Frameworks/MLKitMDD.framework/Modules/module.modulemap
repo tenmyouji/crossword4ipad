@@ -1,0 +1,14 @@
+framework module MLKitMDD {
+  export *
+  link "c++"
+  link "z"
+  link framework "CoreFoundation"
+  link framework "CoreTelephony"
+  link framework "Foundation"
+  link framework "Network"
+  link framework "OSLog"
+  link framework "QuartzCore"
+  link framework "Security"
+  link framework "SystemConfiguration"
+  link framework "UIKit"
+}

@@ -1,0 +1,6 @@
+framework module Pods_crosswordapp {
+  umbrella header "Pods-crosswordapp-umbrella.h"
+
+  export *
+  module * { export * }
+}
