@@ -1,6 +1,22 @@
-# crosswordapp
+# Crossword Pen
 
 A cozy native SwiftUI iPad crossword app built for Apple Pencil handwriting.
+
+## Overview
+
+Crossword Pen is an iPad-first crossword experience with a calm paper-like interface, responsive portrait and landscape layouts, and direct handwriting input inside the puzzle grid.
+
+## Figma UI
+
+The current UI handoff lives in `docs/figma` as editable SVG frames that can be imported into Figma.
+
+### Landscape
+
+![Landscape Figma UI](docs/figma/crossword-ui-landscape.svg)
+
+### Portrait
+
+![Portrait Figma UI](docs/figma/crossword-ui-portrait.svg)
 
 ## What Is Included
 
@@ -13,7 +29,14 @@ A cozy native SwiftUI iPad crossword app built for Apple Pencil handwriting.
 - Gear menu for puzzle actions such as check, restart, new puzzle, and show answers.
 - Completion popup for starting another configured puzzle.
 
-## Open
+## Project Structure
+
+- `crosswordapp/`: SwiftUI app source, puzzle generation, seed puzzle data, and asset catalog.
+- `docs/figma/`: Figma-ready UI SVG frames for portrait and landscape.
+- `docs/images/`: Additional UI preview images.
+- `crosswordapp.xcworkspace`: Xcode workspace with CocoaPods dependencies.
+
+## Open In Xcode
 
 Open `crosswordapp.xcworkspace` in Xcode, choose an iPad simulator or iPad device, and press Run.
 
