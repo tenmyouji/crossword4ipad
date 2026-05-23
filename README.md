@@ -2,20 +2,6 @@
 
 A cozy native SwiftUI iPad crossword app built for Apple Pencil handwriting.
 
-## UI Preview
-
-### Landscape
-
-In landscape, the clue panel stays on the left and the puzzle board stays on the right.
-
-![Landscape UI preview](docs/images/ui-landscape.svg)
-
-### Portrait
-
-In portrait, the puzzle moves to the top and the clue area sits below it.
-
-![Portrait UI preview](docs/images/ui-portrait.svg)
-
 ## What Is Included
 
 - Responsive crossword layout for landscape and portrait iPad use.
