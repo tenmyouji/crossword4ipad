@@ -8,15 +8,15 @@ Crossword Pen is an iPad-first crossword experience with a calm paper-like inter
 
 ## Figma UI
 
-The current UI handoff lives in `docs/figma` as editable SVG frames that can be imported into Figma.
+The current Figma UI previews live in `docs/images`.
 
 ### Landscape
 
-![Landscape Figma UI](docs/figma/crossword-ui-landscape.svg)
+![Landscape Figma UI](docs/images/landscape.png)
 
 ### Portrait
 
-![Portrait Figma UI](docs/figma/crossword-ui-portrait.svg)
+![Portrait Figma UI](docs/images/portrait.png)
 
 ## What Is Included
 
@@ -33,7 +33,7 @@ The current UI handoff lives in `docs/figma` as editable SVG frames that can be 
 
 - `crosswordapp/`: SwiftUI app source, puzzle generation, seed puzzle data, and asset catalog.
 - `docs/figma/`: Figma-ready UI SVG frames for portrait and landscape.
-- `docs/images/`: Additional UI preview images.
+- `docs/images/`: PNG UI previews used in the README.
 - `crosswordapp.xcworkspace`: Xcode workspace with CocoaPods dependencies.
 
 ## Open In Xcode
