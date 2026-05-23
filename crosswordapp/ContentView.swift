@@ -58,30 +58,28 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: 1040, maxHeight: .infinity, alignment: .center)
                     } else {
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 24) {
-                                PuzzleSidebar(
-                                    puzzle: puzzle,
-                                    selectedCell: selectedCell,
-                                    recognizedLetters: recognizedLetters,
-                                    isLandscape: isLandscape,
-                                    direction: $direction,
-                                    checkResult: checkResult,
-                                    startedAt: puzzleStartedAt,
-                                    switchDirection: toggleDirectionIfPossible,
-                                    selectClue: selectClue,
-                                    checkPuzzle: checkPuzzle,
-                                    restartPuzzle: restartPuzzle,
-                                    startNewPuzzle: startNewPuzzle,
-                                    showAnswers: showAnswers
-                                )
-                                .frame(maxWidth: min(proxy.size.width - 48, 696))
+                        VStack(spacing: 24) {
+                            PuzzleSidebar(
+                                puzzle: puzzle,
+                                selectedCell: selectedCell,
+                                recognizedLetters: recognizedLetters,
+                                isLandscape: isLandscape,
+                                direction: $direction,
+                                checkResult: checkResult,
+                                startedAt: puzzleStartedAt,
+                                switchDirection: toggleDirectionIfPossible,
+                                selectClue: selectClue,
+                                checkPuzzle: checkPuzzle,
+                                restartPuzzle: restartPuzzle,
+                                startNewPuzzle: startNewPuzzle,
+                                showAnswers: showAnswers
+                            )
+                            .frame(maxWidth: min(proxy.size.width - 48, 696))
 
-                                boardWithCompletionOverlay
-                                    .frame(width: portraitBoardSize, height: portraitBoardSize)
-                            }
-                            .frame(maxWidth: .infinity)
+                            boardWithCompletionOverlay
+                                .frame(width: portraitBoardSize, height: portraitBoardSize)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
                 }
                 .padding(.horizontal, isLandscape ? 48 : 24)
@@ -100,23 +98,35 @@ struct ContentView: View {
     }
 
     private var boardWithCompletionOverlay: some View {
-        ZStack(alignment: .bottom) {
-            boardView
-
-            if isShowingCompletionSheet {
-                CompletionBanner(
-                    startNewPuzzle: startNewPuzzle,
-                    dismiss: {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            isShowingCompletionSheet = false
+        boardView
+            .overlay(alignment: .bottom) {
+                if isShowingCompletionSheet {
+                    CompletionBanner(
+                        startNewPuzzle: startNewPuzzle,
+                        dismiss: {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                isShowingCompletionSheet = false
+                                checkResult = nil
+                            }
                         }
-                    }
-                )
-                .padding(14)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                    )
+                    .padding(14)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if let checkResult, checkResult != .correct {
+                    PuzzleCheckBanner(
+                        result: checkResult,
+                        dismiss: {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                self.checkResult = nil
+                            }
+                        }
+                    )
+                    .padding(14)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
-        }
-        .animation(.easeInOut(duration: 0.22), value: isShowingCompletionSheet)
+            .animation(.easeInOut(duration: 0.22), value: isShowingCompletionSheet)
+            .animation(.easeInOut(duration: 0.22), value: checkResult)
     }
 
     private var boardView: some View {
@@ -125,6 +135,7 @@ struct ContentView: View {
             selectedCell: $selectedCell,
             direction: direction,
             recognizedLetters: $recognizedLetters,
+            checkResult: checkResult,
             resetID: boardInputResetID,
             onSelectCell: selectCell,
             onRecognizedLetter: storeRecognizedLetter
@@ -379,6 +390,7 @@ private struct CrosswordBoard: View {
     @Binding var selectedCell: CrosswordCoordinate
     let direction: CrosswordDirection
     @Binding var recognizedLetters: [CrosswordCoordinate: String]
+    let checkResult: PuzzleCheckResult?
     let resetID: Int
     let onSelectCell: (CrosswordCoordinate) -> Void
     let onRecognizedLetter: (String?, CrosswordCoordinate) -> Void
@@ -405,7 +417,8 @@ private struct CrosswordBoard: View {
                             puzzle: puzzle,
                             coordinate: coordinate,
                             isHighlighted: selectedAnswer.contains(coordinate),
-                            recognizedLetter: recognizedLetters[coordinate]
+                            recognizedLetter: recognizedLetters[coordinate],
+                            isIncorrect: isIncorrectLetter(at: coordinate)
                         )
                         .frame(width: cellSize, height: cellSize)
                         .position(
@@ -430,6 +443,17 @@ private struct CrosswordBoard: View {
         }
     }
 
+    private func isIncorrectLetter(at coordinate: CrosswordCoordinate) -> Bool {
+        guard case .incorrect = checkResult,
+              let recognizedLetter = recognizedLetters[coordinate],
+              !recognizedLetter.isEmpty,
+              let solutionLetter = puzzle.letter(at: coordinate) else {
+            return false
+        }
+
+        return recognizedLetter.uppercased() != solutionLetter
+    }
+
 }
 
 private struct CrosswordCell: View {
@@ -437,6 +461,7 @@ private struct CrosswordCell: View {
     let coordinate: CrosswordCoordinate
     let isHighlighted: Bool
     let recognizedLetter: String?
+    let isIncorrect: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -448,7 +473,7 @@ private struct CrosswordCell: View {
                     Text(recognizedLetter)
                         .font(.system(size: 42, weight: .medium, design: .serif))
                         .minimumScaleFactor(0.45)
-                        .foregroundStyle(Color.ink)
+                        .foregroundStyle(isIncorrect ? Color.incorrectLetter : Color.ink)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.top, 8)
                 }
@@ -1186,10 +1211,6 @@ private struct CluePanel: View {
                 direction: direction,
                 switchDirection: switchDirection
             )
-
-            if let checkResult {
-                PuzzleCheckCard(result: checkResult)
-            }
         }
     }
 
@@ -1442,31 +1463,45 @@ private struct CompletionBanner: View {
     }
 }
 
-private struct PuzzleCheckCard: View {
+private struct PuzzleCheckBanner: View {
     let result: PuzzleCheckResult
+    let dismiss: () -> Void
 
     var body: some View {
-        Label {
+        HStack(spacing: 12) {
+            Image(systemName: result.systemImage)
+                .font(.system(size: 15, weight: .bold))
+                .frame(width: 30, height: 30)
+                .background(result.foregroundColor.opacity(0.14), in: Circle())
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(result.title)
-                    .font(.system(size: 15, weight: .black, design: .serif))
+                    .font(.system(size: 15, weight: .bold, design: .serif))
 
                 Text(result.message)
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
             }
-        } icon: {
-            Image(systemName: result.systemImage)
-                .font(.system(size: 20, weight: .bold))
+
+            Spacer(minLength: 8)
+
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(result.foregroundColor)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
         }
         .foregroundStyle(result.foregroundColor)
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(result.backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(12)
+        .background(result.backgroundColor.opacity(0.96), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(result.foregroundColor.opacity(0.18), lineWidth: 1)
         }
+        .shadow(color: Color.shadow.opacity(0.14), radius: 12, x: 0, y: 6)
     }
 }
 
@@ -2107,6 +2142,7 @@ private extension Color {
     static let shadow = Color(red: 0.11, green: 0.10, blue: 0.08)
     static let warningInk = Color(red: 0.52, green: 0.34, blue: 0.05)
     static let warningSurface = Color(red: 0.98, green: 0.90, blue: 0.68)
+    static let incorrectLetter = Color(red: 0.58, green: 0.22, blue: 0.20)
     static let successInk = Color(red: 0.08, green: 0.39, blue: 0.22)
     static let successSurface = Color(red: 0.78, green: 0.91, blue: 0.80)
 }
