@@ -21,7 +21,7 @@ struct ContentView: View {
     @State private var puzzleStartedAt = Date()
     @State private var boardInputResetID = 0
 
-    private let puzzleSizes = [5, 10, 15]
+    private let puzzleSizes = [5, 10, 15, 20]
 
     var body: some View {
         GeometryReader { proxy in

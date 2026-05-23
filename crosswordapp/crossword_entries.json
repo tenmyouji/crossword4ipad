@@ -24,4 +24,10 @@
   { "answer": "MUSIC", "clue": "Organized sound", "score": 86 },
   { "answer": "OCEAN", "clue": "A vast body of salt water", "score": 84 },
   { "answer": "FIELD", "clue": "Open land", "score": 78 }
+  ,{ "answer": "BLAST", "clue": "A sudden burst or explosion", "score": 95 }
+  ,{ "answer": "LUNCH", "clue": "A midday meal", "score": 95 }
+  ,{ "answer": "ANGER", "clue": "A strong feeling of displeasure", "score": 95 }
+  ,{ "answer": "SCENE", "clue": "A place where action happens", "score": 95 }
+  ,{ "answer": "THREE", "clue": "One more than two", "score": 95 }
+  ,{ "answer": "THREW", "clue": "Sent something through the air", "score": 92 }
 ]

@@ -56,6 +56,17 @@ struct CrosswordTemplate {
                     name: "triple-5"
                 )
             ]
+        case 20:
+            [
+                CrosswordTemplate(
+                    size: 20,
+                    rows: Array(repeating: "_____###############", count: 5)
+                        + Array(repeating: "#####_____##########", count: 5)
+                        + Array(repeating: "##########_____#####", count: 5)
+                        + Array(repeating: "###############_____", count: 5),
+                    name: "quad-5"
+                )
+            ]
         default:
             []
         }
@@ -125,7 +136,13 @@ struct CrosswordDictionary {
         CrosswordEntry(answer: "ABORD", clue: "To approach or accost, archaically", score: 18),
         CrosswordEntry(answer: "LOYAL", clue: "Faithful and devoted", score: 90),
         CrosswordEntry(answer: "IRATE", clue: "Very angry", score: 84),
-        CrosswordEntry(answer: "IDLER", clue: "One avoiding work", score: 72)
+        CrosswordEntry(answer: "IDLER", clue: "One avoiding work", score: 72),
+        CrosswordEntry(answer: "BLAST", clue: "A sudden burst or explosion", score: 95),
+        CrosswordEntry(answer: "LUNCH", clue: "A midday meal", score: 95),
+        CrosswordEntry(answer: "ANGER", clue: "A strong feeling of displeasure", score: 95),
+        CrosswordEntry(answer: "SCENE", clue: "A place where action happens", score: 95),
+        CrosswordEntry(answer: "THREE", clue: "One more than two", score: 95),
+        CrosswordEntry(answer: "THREW", clue: "Sent something through the air", score: 92)
     ]
 }
 
@@ -219,17 +236,20 @@ private struct CrosswordFillSolver {
         }
 
         let candidates = validEntries(for: next, letters: letters, usedAnswers: usedAnswers)
-            .shuffled(using: &random)
+            .map { entry in
+                (entry, difficulty.rank(for: entry) * 1_000 + Int(random.next() % 1_000))
+            }
             .sorted {
-                let leftRank = difficulty.rank(for: $0)
-                let rightRank = difficulty.rank(for: $1)
+                let leftRank = $0.1
+                let rightRank = $1.1
 
                 if leftRank == rightRank {
-                    return $0.normalizedAnswer < $1.normalizedAnswer
+                    return $0.0.normalizedAnswer < $1.0.normalizedAnswer
                 }
 
                 return leftRank < rightRank
             }
+            .map(\.0)
 
         for candidate in candidates {
             let answer = candidate.normalizedAnswer
@@ -309,20 +329,12 @@ private struct CrosswordFillSolver {
                 return false
             }
 
-            var isFullyDetermined = true
             for (index, coordinate) in slot.cells.enumerated() {
-                guard let existing = letters[coordinate] else {
-                    isFullyDetermined = false
-                    continue
-                }
+                guard let existing = letters[coordinate] else { continue }
                 let character = answer[answer.index(answer.startIndex, offsetBy: index)]
                 if existing != character {
                     return false
                 }
-            }
-
-            if usedAnswers.contains(answer), !isFullyDetermined {
-                return false
             }
 
             return true
