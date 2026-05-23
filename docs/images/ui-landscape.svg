@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+  <title id="title">Landscape crossword app UI preview</title>
+  <desc id="desc">A cozy crossword app in landscape with the clues panel on the left and the puzzle board on the right.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#1c1a14" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="820" fill="#f4f6ef"/>
+  <rect x="0" y="0" width="1280" height="820" fill="#faf0dc" opacity="0.4"/>
+
+  <g filter="url(#shadow)">
+    <rect x="54" y="54" width="390" height="712" rx="10" fill="#fffef6" stroke="#b3b39e" stroke-opacity="0.7"/>
+
+    <rect x="82" y="82" width="44" height="40" rx="8" fill="#1f6e6e"/>
+    <text x="104" y="108" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#fffef6">⚙</text>
+    <rect x="300" y="82" width="116" height="40" rx="8" fill="#f2f5e8" stroke="#b3b39e" stroke-opacity="0.7"/>
+    <text x="358" y="108" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="17" fill="#1d1f1f">7:42</text>
+
+    <rect x="82" y="146" width="334" height="44" rx="22" fill="#badfdb" stroke="#1f6e6e" stroke-opacity="0.2"/>
+    <rect x="88" y="152" width="160" height="32" rx="16" fill="#218080"/>
+    <text x="168" y="173" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="16" fill="#fffef6">Across</text>
+    <text x="333" y="173" text-anchor="middle" font-family="Georgia, serif" font-weight="600" font-size="16" fill="#1c6b6b">Down</text>
+
+    <rect x="82" y="212" width="334" height="82" rx="8" fill="#e0f0e6" stroke="#1f6e6e" stroke-opacity="0.15"/>
+    <text x="104" y="242" font-family="Georgia, serif" font-size="14" fill="#1f6e6e">3 Across</text>
+    <text x="104" y="270" font-family="Georgia, serif" font-size="18" fill="#1d1f1f">General direction things are moving</text>
+
+    <rect x="82" y="316" width="158" height="42" rx="8" fill="#fffef6" stroke="#1f6e6e" stroke-opacity="0.35"/>
+    <text x="101" y="342" font-family="Arial, sans-serif" font-size="18" fill="#1f6e6e">‹</text>
+    <text x="162" y="342" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="#1f6e6e">Previous</text>
+    <rect x="258" y="316" width="158" height="42" rx="8" fill="#fffef6" stroke="#1f6e6e" stroke-opacity="0.35"/>
+    <text x="330" y="342" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="#1f6e6e">Next</text>
+    <text x="398" y="342" font-family="Arial, sans-serif" font-size="18" fill="#1f6e6e">›</text>
+
+    <line x1="82" y1="382" x2="416" y2="382" stroke="#b3b39e" stroke-opacity="0.7"/>
+    <text x="82" y="420" font-family="Georgia, serif" font-weight="700" font-size="18" fill="#1d1f1f">Across</text>
+    <rect x="82" y="438" width="334" height="34" rx="7" fill="#f0e6cc"/>
+    <text x="108" y="461" text-anchor="end" font-family="Georgia, serif" font-weight="700" font-size="14" fill="#6b6352">1.</text>
+    <text x="122" y="461" font-family="Georgia, serif" font-size="15" fill="#1d1f1f">It beats in your chest</text>
+    <text x="108" y="503" text-anchor="end" font-family="Georgia, serif" font-weight="700" font-size="14" fill="#6b6352">3.</text>
+    <text x="122" y="503" font-family="Georgia, serif" font-size="15" fill="#6b6352">General direction things are moving</text>
+    <text x="82" y="562" font-family="Georgia, serif" font-weight="700" font-size="18" fill="#1d1f1f">Down</text>
+    <text x="108" y="603" text-anchor="end" font-family="Georgia, serif" font-weight="700" font-size="14" fill="#6b6352">1.</text>
+    <text x="122" y="603" font-family="Georgia, serif" font-size="15" fill="#6b6352">Glowing piece after a fire</text>
+    <text x="108" y="644" text-anchor="end" font-family="Georgia, serif" font-weight="700" font-size="14" fill="#6b6352">2.</text>
+    <text x="122" y="644" font-family="Georgia, serif" font-size="15" fill="#6b6352">A principle or belief</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="508" y="54" width="712" height="712" rx="10" fill="#fff7e8" stroke="#6b5c47" stroke-opacity="0.35"/>
+    <g transform="translate(536 82)">
+      <rect width="656" height="656" fill="#fffcf4"/>
+      <g stroke="#a7a89a" stroke-width="1">
+        <path d="M0 82H656M0 164H656M0 246H656M0 328H656M0 410H656M0 492H656M0 574H656"/>
+        <path d="M82 0V656M164 0V656M246 0V656M328 0V656M410 0V656M492 0V656M574 0V656"/>
+      </g>
+      <rect x="410" y="0" width="246" height="246" fill="#242b2b"/>
+      <rect x="0" y="410" width="246" height="246" fill="#242b2b"/>
+      <rect x="0" y="0" width="410" height="82" fill="#e5eee4"/>
+      <text x="18" y="24" font-family="Georgia, serif" font-weight="700" font-size="14" fill="#6b6352">1</text>
+      <text x="123" y="62" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="42" fill="#1d1f1f">H</text>
+      <text x="205" y="62" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="42" fill="#1d1f1f">E</text>
+      <text x="287" y="62" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="42" fill="#1d1f1f">A</text>
+      <text x="369" y="62" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="42" fill="#1d1f1f">R</text>
+    </g>
+  </g>
+</svg>

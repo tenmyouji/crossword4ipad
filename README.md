@@ -1,21 +1,50 @@
 # crosswordapp
 
-A minimal native SwiftUI iPad crossword prototype for Apple Pencil.
+A cozy native SwiftUI iPad crossword app built for Apple Pencil handwriting.
+
+## UI Preview
+
+### Landscape
+
+In landscape, the clue panel stays on the left and the puzzle board stays on the right.
+
+![Landscape UI preview](docs/images/ui-landscape.svg)
+
+### Portrait
+
+In portrait, the puzzle moves to the top and the clue area sits below it.
+
+![Portrait UI preview](docs/images/ui-portrait.svg)
+
+## What Is Included
+
+- Responsive crossword layout for landscape and portrait iPad use.
+- Generated puzzle sizes: `5 x 5`, `10 x 10`, `15 x 15`, and `20 x 20`.
+- New puzzle setup popup with size and difficulty choices.
+- Apple Pencil writing directly inside each crossword square with PencilKit.
+- ML Kit Digital Ink Recognition for turning handwriting into answer letters.
+- Across/Down tabs, current clue display, and previous/next clue navigation.
+- Gear menu for puzzle actions such as check, restart, new puzzle, and show answers.
+- Completion popup for starting another configured puzzle.
 
 ## Open
 
-Open `crosswordapp.xcodeproj` in Xcode, choose an iPad simulator or iPad device, and press Run.
+Open `crosswordapp.xcworkspace` in Xcode, choose an iPad simulator or iPad device, and press Run.
 
-## What is included
+If the workspace or ML Kit dependency is missing, install the pods first:
 
-- A 10x10 crossword board inspired by newspaper-style mini crosswords.
-- Apple Pencil input using PencilKit.
-- Tap a white square, then write directly in that square with Apple Pencil.
-- Across/Down clue switching and current-clue highlighting.
-- Erase controls for one square or the whole puzzle.
+```sh
+pod install
+```
+
+## Build From Command Line
+
+```sh
+xcodebuild -workspace crosswordapp.xcworkspace -scheme crosswordapp -sdk iphonesimulator -derivedDataPath /Users/leiva/crosswordpenapp/DerivedData CODE_SIGNING_ALLOWED=NO build
+```
 
 ## Notes
 
-- The app is configured as iPad-only via `TARGETED_DEVICE_FAMILY = 2`.
-- The current version is paper-like: it stores handwritten marks, not recognized typed letters yet.
-- Bundle identifier: `com.example.crosswordapp`.
+- The app is configured as iPad-only with iOS 17.0 as the deployment target.
+- CocoaPods provides `GoogleMLKit/DigitalInkRecognition`.
+- Bundle identifier: `com.example.leivacrossword`.
