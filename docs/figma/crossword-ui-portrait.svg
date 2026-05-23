@@ -1,0 +1,117 @@
+<svg width="1024" height="1366" viewBox="0 0 1024 1366" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Crossword app portrait UI frame</title>
+  <desc>Editable SVG handoff for Figma. Portrait layout with puzzle on top and clue controls below.</desc>
+  <defs>
+    <style>
+      .serif { font-family: Georgia, "Times New Roman", serif; }
+      .ink { fill: #1C1F1F; }
+      .soft { fill: #6B6B61; }
+      .muted { opacity: .42; }
+      .label { font-size: 22px; font-weight: 700; }
+      .clue { font-size: 20px; font-weight: 500; }
+      .current-title { font-size: 24px; font-weight: 500; }
+      .current-clue { font-size: 28px; font-weight: 700; }
+      .number { font-size: 13px; font-weight: 700; }
+      .letter { font-size: 30px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1024" height="1366" fill="#FBFBF9"/>
+
+  <g id="portrait-board" transform="translate(152 56)">
+    <rect width="720" height="720" rx="8" fill="#FFFDF6" stroke="#6B5C47" stroke-opacity=".34" stroke-width="2"/>
+    <rect x="0" y="0" width="144" height="144" fill="#CCE6DB"/>
+    <rect x="144" y="0" width="144" height="144" fill="#CCE6DB"/>
+    <rect x="288" y="0" width="144" height="144" fill="#CCE6DB"/>
+    <rect x="432" y="0" width="144" height="144" fill="#CCE6DB"/>
+    <rect x="576" y="0" width="144" height="144" fill="#CCE6DB"/>
+    <rect x="0" y="144" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="144" y="144" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="288" y="144" width="144" height="144" fill="#202929"/>
+    <rect x="432" y="144" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="576" y="144" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="0" y="288" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="144" y="288" width="144" height="144" fill="#202929"/>
+    <rect x="288" y="288" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="432" y="288" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="576" y="288" width="144" height="144" fill="#202929"/>
+    <rect x="0" y="432" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="144" y="432" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="288" y="432" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="432" y="432" width="144" height="144" fill="#202929"/>
+    <rect x="576" y="432" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="0" y="576" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="144" y="576" width="144" height="144" fill="#202929"/>
+    <rect x="288" y="576" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="432" y="576" width="144" height="144" fill="#FFFDF6"/>
+    <rect x="576" y="576" width="144" height="144" fill="#FFFDF6"/>
+    <g stroke="#A6A89A" stroke-width="1.2">
+      <path d="M144 0v720M288 0v720M432 0v720M576 0v720M0 144h720M0 288h720M0 432h720M0 576h720"/>
+    </g>
+    <g class="serif number" fill="#706451">
+      <text x="9" y="22">1</text><text x="153" y="22">2</text><text x="297" y="22">3</text><text x="441" y="22">4</text><text x="585" y="22">5</text>
+      <text x="9" y="166">6</text><text x="441" y="166">7</text>
+      <text x="9" y="310">8</text><text x="297" y="310">9</text>
+      <text x="9" y="454">10</text><text x="585" y="454">11</text>
+      <text x="9" y="598">12</text><text x="297" y="598">13</text>
+    </g>
+    <text x="58" y="92" class="serif letter ink">C</text>
+    <text x="202" y="92" class="serif letter ink">O</text>
+    <text x="346" y="92" class="serif letter ink">Z</text>
+    <text x="490" y="92" class="serif letter ink">Y</text>
+  </g>
+
+  <g id="portrait-clue-panel" transform="translate(56 824)">
+    <rect width="912" height="486" rx="8" fill="#FCFCF9" stroke="#B3B39E" stroke-opacity=".5"/>
+    <g transform="translate(24 18)">
+      <rect width="96" height="40" rx="8" fill="#F2F5E8" stroke="#B3B39E" stroke-opacity=".72"/>
+      <text x="16" y="26" class="serif" font-size="18" fill="#1C1F1F">0:25</text>
+      <path d="M67 13h4v14h-4zM76 13h4v14h-4z" fill="#6B6B61" opacity=".7"/>
+      <path d="M846 7a13 13 0 1 1 0 26 13 13 0 0 1 0-26Zm0 4.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Z" fill="#1C1F1F"/>
+      <path d="M846 14v3.5M846 22v1.5M838 16.5h16M839.8 25h12.4M841.2 11h9.6" stroke="#1C1F1F" stroke-width="2" stroke-linecap="round"/>
+    </g>
+
+    <g id="portrait-columns" transform="translate(24 86)">
+      <g id="across-column">
+        <text x="0" y="0" class="serif label ink">Across</text>
+        <g transform="translate(0 30)">
+          <rect width="270" height="46" rx="7" fill="#F0E6CC"/>
+          <text x="18" y="29" class="serif clue ink">1.</text>
+          <text x="56" y="29" class="serif clue ink">Small shared laugh</text>
+        </g>
+        <g transform="translate(0 92)">
+          <text x="18" y="29" class="serif clue soft">6.</text>
+          <text x="56" y="29" class="serif clue soft">Gentle morning light</text>
+        </g>
+        <g transform="translate(0 154)" class="muted">
+          <text x="18" y="29" class="serif clue soft">8.</text>
+          <text x="56" y="29" class="serif clue soft">Filled answer</text>
+        </g>
+      </g>
+
+      <g id="down-column" transform="translate(300 0)">
+        <text x="0" y="0" class="serif label ink">Down</text>
+        <g transform="translate(0 30)">
+          <rect x="0" y="5" width="5" height="36" rx="2" fill="#F0E6CC"/>
+          <text x="18" y="29" class="serif clue soft">1.</text>
+          <text x="56" y="29" class="serif clue soft">Crossing clue</text>
+        </g>
+        <g transform="translate(0 92)">
+          <text x="18" y="29" class="serif clue soft">2.</text>
+          <text x="56" y="29" class="serif clue soft">A soft start</text>
+        </g>
+        <g transform="translate(0 154)" class="muted">
+          <text x="18" y="29" class="serif clue soft">4.</text>
+          <text x="56" y="29" class="serif clue soft">Complete clue</text>
+        </g>
+      </g>
+
+      <g id="current-clue-card" transform="translate(612 -8)">
+        <rect width="252" height="178" rx="22" fill="#F0E6CC"/>
+        <text x="24" y="46" class="serif current-title ink">1 Across</text>
+        <text x="24" y="92" class="serif current-clue ink">A cozy clue</text>
+        <text x="24" y="126" class="serif current-clue ink">lives here.</text>
+      </g>
+    </g>
+  </g>
+</svg>

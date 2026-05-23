@@ -8,22 +8,26 @@
 
 /* Begin PBXBuildFile section */
 		07DC4171CAB7C88C6B63DAB2 /* Pods_crosswordapp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AFC8AF651EBD8EC835723BC6 /* Pods_crosswordapp.framework */; };
-		A1B2C3D4E5F6010102030408 /* CrosswordGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */; };
-		A1B2C3D4E5F601010203040A /* crossword_entries.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F601010203040B /* crossword_entries.json */; };
+		A1B2C3D4E5F6010102030399 /* purpleicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030398 /* purpleicon.icon */; };
 		A1B2C3D4E5F6010102030405 /* CrosswordAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030401 /* CrosswordAppApp.swift */; };
 		A1B2C3D4E5F6010102030406 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030402 /* ContentView.swift */; };
 		A1B2C3D4E5F6010102030407 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030403 /* Assets.xcassets */; };
+		A1B2C3D4E5F6010102030408 /* CrosswordGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */; };
+		A1B2C3D4E5F601010203040A /* crossword_entries.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F601010203040B /* crossword_entries.json */; };
+		A1B2C3D4E5F601010203040C /* crossword_seed_puzzles.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F601010203040D /* crossword_seed_puzzles.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2053BEECDBC43639D0EB1C6C /* Pods-crosswordapp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-crosswordapp.release.xcconfig"; path = "Target Support Files/Pods-crosswordapp/Pods-crosswordapp.release.xcconfig"; sourceTree = "<group>"; };
 		7759D3476EDE8BD56D351FBA /* Pods-crosswordapp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-crosswordapp.debug.xcconfig"; path = "Target Support Files/Pods-crosswordapp/Pods-crosswordapp.debug.xcconfig"; sourceTree = "<group>"; };
+		A1B2C3D4E5F6010102030398 /* purpleicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Assets.xcassets/purpleicon.icon; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010102030401 /* CrosswordAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrosswordAppApp.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010102030402 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010102030403 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010102030404 /* crosswordapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = crosswordapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrosswordGenerator.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F601010203040B /* crossword_entries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = crossword_entries.json; sourceTree = "<group>"; };
+		A1B2C3D4E5F601010203040D /* crossword_seed_puzzles.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = crossword_seed_puzzles.json; sourceTree = "<group>"; };
 		AFC8AF651EBD8EC835723BC6 /* Pods_crosswordapp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_crosswordapp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -45,7 +49,6 @@
 				7759D3476EDE8BD56D351FBA /* Pods-crosswordapp.debug.xcconfig */,
 				2053BEECDBC43639D0EB1C6C /* Pods-crosswordapp.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -61,13 +64,15 @@
 		};
 		A1B2C3D4E5F6010102030421 /* crosswordapp */ = {
 			isa = PBXGroup;
-			children = (
-				A1B2C3D4E5F6010102030401 /* CrosswordAppApp.swift */,
-				A1B2C3D4E5F6010102030402 /* ContentView.swift */,
-				A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */,
-				A1B2C3D4E5F601010203040B /* crossword_entries.json */,
-				A1B2C3D4E5F6010102030403 /* Assets.xcassets */,
-			);
+				children = (
+					A1B2C3D4E5F6010102030401 /* CrosswordAppApp.swift */,
+					A1B2C3D4E5F6010102030402 /* ContentView.swift */,
+					A1B2C3D4E5F6010102030409 /* CrosswordGenerator.swift */,
+					A1B2C3D4E5F601010203040B /* crossword_entries.json */,
+					A1B2C3D4E5F601010203040D /* crossword_seed_puzzles.json */,
+					A1B2C3D4E5F6010102030403 /* Assets.xcassets */,
+					A1B2C3D4E5F6010102030398 /* purpleicon.icon */,
+				);
 			path = crosswordapp;
 			sourceTree = "<group>";
 		};
@@ -147,10 +152,12 @@
 		A1B2C3D4E5F6010102030450 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (
-				A1B2C3D4E5F6010102030407 /* Assets.xcassets in Resources */,
-				A1B2C3D4E5F601010203040A /* crossword_entries.json in Resources */,
-			);
+				files = (
+					A1B2C3D4E5F6010102030407 /* Assets.xcassets in Resources */,
+					A1B2C3D4E5F6010102030399 /* purpleicon.icon in Resources */,
+					A1B2C3D4E5F601010203040A /* crossword_entries.json in Resources */,
+					A1B2C3D4E5F601010203040C /* crossword_seed_puzzles.json in Resources */,
+				);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
@@ -164,9 +171,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-crosswordapp/Pods-crosswordapp-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-crosswordapp/Pods-crosswordapp-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -203,9 +214,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-crosswordapp/Pods-crosswordapp-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-crosswordapp/Pods-crosswordapp-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -353,8 +368,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7759D3476EDE8BD56D351FBA /* Pods-crosswordapp.debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+					ASSETCATALOG_COMPILER_APPICON_NAME = purpleicon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -385,8 +401,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2053BEECDBC43639D0EB1C6C /* Pods-crosswordapp.release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+					ASSETCATALOG_COMPILER_APPICON_NAME = purpleicon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";

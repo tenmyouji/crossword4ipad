@@ -73,7 +73,205 @@ struct CrosswordTemplate {
     }
 }
 
+struct CrosswordSeedPuzzle: Decodable {
+    let size: Int
+    let difficulty: PuzzleDifficulty
+    let sourceName: String
+    let solutionRows: [String]
+    let clueBank: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case size
+        case difficulty
+        case sourceName
+        case solutionRows
+        case clueBank = "clues"
+    }
+
+    var normalizedClueBank: [String: String] {
+        Dictionary(uniqueKeysWithValues: clueBank.map { answer, clue in
+            (answer.uppercased(), clue)
+        })
+    }
+
+    func makePuzzle() -> CrosswordPuzzle? {
+        guard validationErrors().isEmpty else { return nil }
+        return CrosswordPuzzle(solutionRows: solutionRows, clueBank: normalizedClueBank)
+    }
+
+    func validationErrors() -> [String] {
+        var errors: [String] = []
+
+        guard solutionRows.count == size else {
+            return ["\(sourceName) has \(solutionRows.count) rows for size \(size)"]
+        }
+
+        for row in solutionRows {
+            if row.count != size {
+                errors.append("\(sourceName) has a row with \(row.count) columns")
+            }
+
+            if row.contains(where: { character in
+                character != "#" && !(character >= "A" && character <= "Z")
+            }) {
+                errors.append("\(sourceName) contains a non A-Z/# character")
+            }
+        }
+
+        let entries = Self.entries(in: solutionRows)
+        let clueAnswers = Set(normalizedClueBank.keys)
+        for entry in entries where entry.answer.count > 1 {
+            if normalizedClueBank[entry.answer]?.isEmpty ?? true {
+                errors.append("\(sourceName) is missing a clue for \(entry.answer)")
+            }
+        }
+
+        let entryAnswers = Set(entries.map(\.answer))
+        let unusedClues = clueAnswers.subtracting(entryAnswers)
+        if !unusedClues.isEmpty {
+            errors.append("\(sourceName) has unused clues: \(unusedClues.sorted().joined(separator: ", "))")
+        }
+
+        let acrossAnswers = Set(entries.filter { $0.direction == .across }.map(\.answer))
+        let downAnswers = Set(entries.filter { $0.direction == .down }.map(\.answer))
+        let duplicatedDirectionAnswers = acrossAnswers.intersection(downAnswers)
+        if !duplicatedDirectionAnswers.isEmpty {
+            errors.append("\(sourceName) repeats across/down answers: \(duplicatedDirectionAnswers.sorted().joined(separator: ", "))")
+        }
+
+        let sameStartEntries = Dictionary(grouping: entries, by: \.start)
+        for startEntries in sameStartEntries.values where startEntries.count > 1 {
+            let answers = Set(startEntries.map(\.answer))
+            if answers.count < startEntries.count {
+                errors.append("\(sourceName) has a same-number across/down duplicate answer")
+            }
+        }
+
+        return errors
+    }
+
+    private static func entries(in rows: [String]) -> [SeedEntry] {
+        guard let size = rows.first?.count else { return [] }
+        var entries: [SeedEntry] = []
+
+        for row in 0..<rows.count {
+            for column in 0..<size {
+                let coordinate = CrosswordCoordinate(row: row, column: column)
+                guard letter(at: coordinate, rows: rows) != nil else { continue }
+
+                let startsAcross = letter(at: CrosswordCoordinate(row: row, column: column - 1), rows: rows) == nil
+                    && letter(at: CrosswordCoordinate(row: row, column: column + 1), rows: rows) != nil
+                if startsAcross {
+                    entries.append(entry(start: coordinate, direction: .across, rows: rows))
+                }
+
+                let startsDown = letter(at: CrosswordCoordinate(row: row - 1, column: column), rows: rows) == nil
+                    && letter(at: CrosswordCoordinate(row: row + 1, column: column), rows: rows) != nil
+                if startsDown {
+                    entries.append(entry(start: coordinate, direction: .down, rows: rows))
+                }
+            }
+        }
+
+        return entries.filter { $0.answer.count > 1 }
+    }
+
+    private static func entry(start: CrosswordCoordinate, direction: CrosswordDirection, rows: [String]) -> SeedEntry {
+        var cursor = start
+        var answer = ""
+
+        while let letter = letter(at: cursor, rows: rows) {
+            answer.append(letter)
+            cursor = direction == .across
+                ? CrosswordCoordinate(row: cursor.row, column: cursor.column + 1)
+                : CrosswordCoordinate(row: cursor.row + 1, column: cursor.column)
+        }
+
+        return SeedEntry(start: start, direction: direction, answer: answer)
+    }
+
+    private static func letter(at coordinate: CrosswordCoordinate, rows: [String]) -> Character? {
+        guard coordinate.row >= 0,
+              coordinate.row < rows.count,
+              coordinate.column >= 0,
+              coordinate.column < rows[coordinate.row].count else {
+            return nil
+        }
+
+        let row = rows[coordinate.row]
+        let index = row.index(row.startIndex, offsetBy: coordinate.column)
+        let character = row[index]
+        return character == "#" ? nil : character
+    }
+}
+
+private struct SeedEntry {
+    let start: CrosswordCoordinate
+    let direction: CrosswordDirection
+    let answer: String
+}
+
+enum CrosswordSeedLibrary {
+    static func puzzle(size: Int, difficulty: PuzzleDifficulty, seed: Int?) -> CrosswordPuzzle? {
+        let matchingSize = validSeeds.filter { $0.size == size }
+        guard !matchingSize.isEmpty else { return nil }
+
+        let difficultyOrder = [difficulty, .medium, .easy] + PuzzleDifficulty.allCases
+        for selectedDifficulty in unique(difficultyOrder) {
+            let matches = matchingSize.filter { $0.difficulty == selectedDifficulty }
+            guard !matches.isEmpty else { continue }
+            return select(from: matches, seed: seed)?.makePuzzle()
+        }
+
+        return select(from: matchingSize, seed: seed)?.makePuzzle()
+    }
+
+    private static let validSeeds: [CrosswordSeedPuzzle] = loadSeeds().filter { seed in
+        seed.validationErrors().isEmpty
+    }
+
+    private static func loadSeeds() -> [CrosswordSeedPuzzle] {
+        guard let url = Bundle.main.url(forResource: "crossword_seed_puzzles", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let seeds = try? JSONDecoder().decode([CrosswordSeedPuzzle].self, from: data),
+              !seeds.isEmpty else {
+            return fallbackSeeds
+        }
+
+        return seeds
+    }
+
+    private static func select(from seeds: [CrosswordSeedPuzzle], seed: Int?) -> CrosswordSeedPuzzle? {
+        guard !seeds.isEmpty else { return nil }
+        let seedValue = abs(seed ?? Int(Date().timeIntervalSince1970))
+        return seeds[seedValue % seeds.count]
+    }
+
+    private static func unique(_ difficulties: [PuzzleDifficulty]) -> [PuzzleDifficulty] {
+        var seen: Set<PuzzleDifficulty> = []
+        return difficulties.filter { seen.insert($0).inserted }
+    }
+
+    private static let fallbackSeeds: [CrosswordSeedPuzzle] = [
+        CrosswordSeedPuzzle(
+            size: 5,
+            difficulty: .easy,
+            sourceName: "fallback-easy-5",
+            solutionRows: ["ABOUT", "H#C#I", "EVENT", "A#A#L", "DANCE"],
+            clueBank: [
+                "ABOUT": "Concerning",
+                "EVENT": "Something that happens",
+                "DANCE": "Move rhythmically to music",
+                "OCEAN": "A vast body of salt water",
+                "AHEAD": "In front",
+                "TITLE": "Name of a work"
+            ]
+        )
+    ]
+}
+
 struct CrosswordDictionary {
+    let entries: [CrosswordEntry]
     private let entriesByLength: [Int: [CrosswordEntry]]
     private let cluesByAnswer: [String: String]
 
@@ -84,6 +282,7 @@ struct CrosswordDictionary {
             }
             .filter { !$0.normalizedAnswer.isEmpty }
 
+        self.entries = normalizedEntries
         entriesByLength = Dictionary(grouping: normalizedEntries, by: { $0.normalizedAnswer.count })
             .mapValues { entries in
                 entries.sorted {
@@ -100,6 +299,10 @@ struct CrosswordDictionary {
 
     func entries(length: Int) -> [CrosswordEntry] {
         entriesByLength[length] ?? []
+    }
+
+    func entry(for answer: String) -> CrosswordEntry? {
+        entries.first { $0.normalizedAnswer == answer }
     }
 
     func clueBank(for answers: Set<String>) -> [String: String] {
@@ -146,6 +349,526 @@ struct CrosswordDictionary {
     ]
 }
 
+struct WordIndex {
+    private let entriesByAnswer: [String: CrosswordEntry]
+    private let entriesByLength: [Int: [String]]
+    private let positionLetterIndex: [Int: [Int: [Character: Set<String>]]]
+
+    init(entries: [CrosswordEntry]) {
+        var answerMap: [String: CrosswordEntry] = [:]
+        var lengthMap: [Int: [String]] = [:]
+        var index: [Int: [Int: [Character: Set<String>]]] = [:]
+
+        for entry in entries {
+            let answer = entry.normalizedAnswer
+            guard !answer.isEmpty else { continue }
+
+            answerMap[answer] = entry
+            lengthMap[answer.count, default: []].append(answer)
+
+            for (position, letter) in answer.enumerated() {
+                index[answer.count, default: [:]][position, default: [:]][letter, default: []].insert(answer)
+            }
+        }
+
+        entriesByAnswer = answerMap
+        entriesByLength = lengthMap.mapValues { answers in
+            answers.sorted { left, right in
+                let leftScore = answerMap[left]?.score ?? 0
+                let rightScore = answerMap[right]?.score ?? 0
+                if leftScore == rightScore {
+                    return left < right
+                }
+
+                return leftScore > rightScore
+            }
+        }
+        positionLetterIndex = index
+    }
+
+    func entries(length: Int, constraints: [Int: Character], usedAnswers: Set<String>) -> [CrosswordEntry] {
+        guard let allAnswers = entriesByLength[length] else { return [] }
+
+        let matchingAnswers: Set<String>
+        if constraints.isEmpty {
+            matchingAnswers = Set(allAnswers)
+        } else {
+            var matches: Set<String>?
+            for (position, letter) in constraints {
+                guard let answers = positionLetterIndex[length]?[position]?[letter] else {
+                    return []
+                }
+
+                matches = matches.map { $0.intersection(answers) } ?? answers
+            }
+
+            matchingAnswers = matches ?? []
+        }
+
+        return allAnswers.compactMap { answer in
+            guard matchingAnswers.contains(answer),
+                  !usedAnswers.contains(answer),
+                  let entry = entriesByAnswer[answer] else {
+                return nil
+            }
+
+            return entry
+        }
+    }
+
+    func clueBank(for answers: Set<String>) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: answers.compactMap { answer in
+            guard let clue = entriesByAnswer[answer]?.clue, !clue.isEmpty else { return nil }
+            return (answer, clue)
+        })
+    }
+}
+
+struct CrosswordPlacement {
+    let entry: CrosswordEntry
+    let start: CrosswordCoordinate
+    let direction: CrosswordDirection
+
+    var answer: String {
+        entry.normalizedAnswer
+    }
+
+    var cells: [CrosswordCoordinate] {
+        Self.cells(start: start, direction: direction, length: answer.count)
+    }
+
+    static func cells(start: CrosswordCoordinate, direction: CrosswordDirection, length: Int) -> [CrosswordCoordinate] {
+        (0..<length).map { offset in
+            direction == .across
+                ? CrosswordCoordinate(row: start.row, column: start.column + offset)
+                : CrosswordCoordinate(row: start.row + offset, column: start.column)
+        }
+    }
+}
+
+struct PlacementCandidate {
+    let start: CrosswordCoordinate
+    let direction: CrosswordDirection
+    let length: Int
+    let constraints: [Int: Character]
+    let score: Int
+}
+
+private struct GeneratedCrosswordBoard {
+    private(set) var letters: [CrosswordCoordinate: Character] = [:]
+    private(set) var placements: [CrosswordPlacement] = []
+    private(set) var usedAnswers: Set<String> = []
+
+    var isEmpty: Bool {
+        letters.isEmpty
+    }
+
+    var answerCount: Int {
+        usedAnswers.count
+    }
+
+    mutating func place(_ placement: CrosswordPlacement) {
+        let answer = Array(placement.answer)
+        for (index, coordinate) in placement.cells.enumerated() {
+            letters[coordinate] = answer[index]
+        }
+
+        placements.append(placement)
+        usedAnswers.insert(placement.answer)
+    }
+
+    func canPlace(_ entry: CrosswordEntry, start: CrosswordCoordinate, direction: CrosswordDirection, targetSize: Int) -> Bool {
+        let answer = Array(entry.normalizedAnswer)
+        guard !answer.isEmpty,
+              answer.count <= targetSize,
+              !usedAnswers.contains(entry.normalizedAnswer) else {
+            return false
+        }
+
+        let cells = CrosswordPlacement.cells(start: start, direction: direction, length: answer.count)
+        guard fitsWithinSearchBounds(cells, targetSize: targetSize) else { return false }
+
+        var crossingCount = 0
+        for (index, coordinate) in cells.enumerated() {
+            if let existing = letters[coordinate] {
+                guard existing == answer[index] else { return false }
+                crossingCount += 1
+                continue
+            }
+
+            let adjacent = perpendicularNeighbors(of: coordinate, direction: direction)
+            if adjacent.contains(where: { letters[$0] != nil }) {
+                return false
+            }
+        }
+
+        guard isEmpty || crossingCount > 0 else { return false }
+
+        let before = coordinate(before: start, direction: direction)
+        let after = coordinate(after: cells[cells.count - 1], direction: direction)
+        guard letters[before] == nil, letters[after] == nil else { return false }
+
+        return true
+    }
+
+    func candidates(from placement: CrosswordPlacement, profile: CrosswordGenerationProfile) -> [PlacementCandidate] {
+        let answer = Array(placement.answer)
+        let crossingDirection = placement.direction == .across ? CrosswordDirection.down : .across
+        var candidates: [PlacementCandidate] = []
+
+        for (letterIndex, coordinate) in placement.cells.enumerated() {
+            for length in profile.candidateLengths where length >= 2 && length <= profile.size {
+                for crossingIndex in 0..<length {
+                    let start = crossingDirection == .across
+                        ? CrosswordCoordinate(row: coordinate.row, column: coordinate.column - crossingIndex)
+                        : CrosswordCoordinate(row: coordinate.row - crossingIndex, column: coordinate.column)
+                    guard crossingIndex < length else { continue }
+
+                    let cells = CrosswordPlacement.cells(start: start, direction: crossingDirection, length: length)
+                    guard fitsWithinSearchBounds(cells, targetSize: profile.size) else { continue }
+
+                    let constraints = constraints(for: cells)
+                    guard constraints[crossingIndex] == answer[letterIndex] else { continue }
+
+                    let score = constraints.count * 200 + length * 20
+                    candidates.append(
+                        PlacementCandidate(
+                            start: start,
+                            direction: crossingDirection,
+                            length: length,
+                            constraints: constraints,
+                            score: score
+                        )
+                    )
+                }
+            }
+        }
+
+        return candidates
+    }
+
+    func normalizedRows(size: Int) -> [String]? {
+        guard let bounds = bounds else { return nil }
+        let height = bounds.maxRow - bounds.minRow + 1
+        let width = bounds.maxColumn - bounds.minColumn + 1
+        guard height <= size, width <= size else { return nil }
+
+        let rowOffset = -bounds.minRow + (size - height) / 2
+        let columnOffset = -bounds.minColumn + (size - width) / 2
+        var rows = Array(repeating: Array(repeating: Character("#"), count: size), count: size)
+
+        for (coordinate, letter) in letters {
+            let row = coordinate.row + rowOffset
+            let column = coordinate.column + columnOffset
+            guard row >= 0, row < size, column >= 0, column < size else { return nil }
+            rows[row][column] = letter
+        }
+
+        return rows.map { String($0) }
+    }
+
+    func isConnected() -> Bool {
+        guard let first = letters.keys.first else { return false }
+        let targets = Set(letters.keys)
+        var visited: Set<CrosswordCoordinate> = [first]
+        var queue = [first]
+
+        while !queue.isEmpty {
+            let current = queue.removeFirst()
+            for neighbor in orthogonalNeighbors(of: current) where targets.contains(neighbor) && !visited.contains(neighbor) {
+                visited.insert(neighbor)
+                queue.append(neighbor)
+            }
+        }
+
+        return visited.count == targets.count
+    }
+
+    private var bounds: (minRow: Int, maxRow: Int, minColumn: Int, maxColumn: Int)? {
+        guard let first = letters.keys.first else { return nil }
+        return letters.keys.reduce((first.row, first.row, first.column, first.column)) { bounds, coordinate in
+            (
+                min(bounds.0, coordinate.row),
+                max(bounds.1, coordinate.row),
+                min(bounds.2, coordinate.column),
+                max(bounds.3, coordinate.column)
+            )
+        }
+    }
+
+    private func constraints(for cells: [CrosswordCoordinate]) -> [Int: Character] {
+        var constraints: [Int: Character] = [:]
+        for (index, coordinate) in cells.enumerated() {
+            if let letter = letters[coordinate] {
+                constraints[index] = letter
+            }
+        }
+
+        return constraints
+    }
+
+    private func fitsWithinSearchBounds(_ cells: [CrosswordCoordinate], targetSize: Int) -> Bool {
+        guard !cells.isEmpty else { return false }
+
+        var projected = letters
+        for coordinate in cells {
+            projected[coordinate] = projected[coordinate] ?? "A"
+        }
+
+        guard let first = projected.keys.first else { return false }
+        let bounds = projected.keys.reduce((first.row, first.row, first.column, first.column)) { bounds, coordinate in
+            (
+                min(bounds.0, coordinate.row),
+                max(bounds.1, coordinate.row),
+                min(bounds.2, coordinate.column),
+                max(bounds.3, coordinate.column)
+            )
+        }
+
+        return bounds.1 - bounds.0 + 1 <= targetSize && bounds.3 - bounds.2 + 1 <= targetSize
+    }
+
+    private func perpendicularNeighbors(of coordinate: CrosswordCoordinate, direction: CrosswordDirection) -> [CrosswordCoordinate] {
+        if direction == .across {
+            return [
+                CrosswordCoordinate(row: coordinate.row - 1, column: coordinate.column),
+                CrosswordCoordinate(row: coordinate.row + 1, column: coordinate.column)
+            ]
+        }
+
+        return [
+            CrosswordCoordinate(row: coordinate.row, column: coordinate.column - 1),
+            CrosswordCoordinate(row: coordinate.row, column: coordinate.column + 1)
+        ]
+    }
+
+    private func coordinate(before coordinate: CrosswordCoordinate, direction: CrosswordDirection) -> CrosswordCoordinate {
+        direction == .across
+            ? CrosswordCoordinate(row: coordinate.row, column: coordinate.column - 1)
+            : CrosswordCoordinate(row: coordinate.row - 1, column: coordinate.column)
+    }
+
+    private func coordinate(after coordinate: CrosswordCoordinate, direction: CrosswordDirection) -> CrosswordCoordinate {
+        direction == .across
+            ? CrosswordCoordinate(row: coordinate.row, column: coordinate.column + 1)
+            : CrosswordCoordinate(row: coordinate.row + 1, column: coordinate.column)
+    }
+
+    private func orthogonalNeighbors(of coordinate: CrosswordCoordinate) -> [CrosswordCoordinate] {
+        [
+            CrosswordCoordinate(row: coordinate.row - 1, column: coordinate.column),
+            CrosswordCoordinate(row: coordinate.row + 1, column: coordinate.column),
+            CrosswordCoordinate(row: coordinate.row, column: coordinate.column - 1),
+            CrosswordCoordinate(row: coordinate.row, column: coordinate.column + 1)
+        ]
+    }
+}
+
+private struct CrosswordGenerationProfile {
+    let size: Int
+    let targetAnswers: Int
+    let minimumAnswers: Int
+    let seedLengths: [Int]
+    let candidateLengths: [Int]
+    let candidateTryLimit: Int
+
+    init(size: Int, difficulty: PuzzleDifficulty) {
+        self.size = size
+
+        switch size {
+        case 0...5:
+            targetAnswers = difficulty == .hard ? 8 : 6
+            minimumAnswers = 5
+            seedLengths = Array(stride(from: min(size, 8), through: 4, by: -1))
+            candidateLengths = Array(stride(from: min(size, 7), through: 2, by: -1))
+            candidateTryLimit = 18
+        case 6...10:
+            targetAnswers = difficulty == .hard ? 18 : 14
+            minimumAnswers = 10
+            seedLengths = Array(stride(from: min(size, 10), through: 5, by: -1))
+            candidateLengths = Array(stride(from: min(size, 10), through: difficulty == .easy ? 3 : 2, by: -1))
+            candidateTryLimit = 22
+        default:
+            targetAnswers = difficulty == .hard ? 34 : 26
+            minimumAnswers = 16
+            seedLengths = Array(stride(from: min(size, 12), through: 6, by: -1))
+            candidateLengths = Array(stride(from: min(size, 12), through: difficulty == .easy ? 4 : 3, by: -1))
+            candidateTryLimit = 28
+        }
+    }
+}
+
+private struct FastCrosswordGenerator {
+    let dictionary: CrosswordDictionary
+    let difficulty: PuzzleDifficulty
+    let profile: CrosswordGenerationProfile
+    let deadline: Date
+    var random: SeededRandomNumberGenerator
+
+    mutating func generate() -> CrosswordPuzzle? {
+        let entries = dictionary.entries
+            .filter { difficulty.allows($0) }
+            .filter { $0.normalizedAnswer.count >= 2 && $0.normalizedAnswer.count <= profile.size }
+
+        guard !entries.isEmpty else { return nil }
+
+        let index = WordIndex(entries: entries)
+        let anchors = anchorEntries(from: entries)
+        guard !anchors.isEmpty else { return nil }
+
+        var bestPuzzle: CrosswordPuzzle?
+        var bestScore = 0
+
+        for anchor in anchors where Date() < deadline {
+            var board = GeneratedCrosswordBoard()
+            let start = CrosswordCoordinate(row: 0, column: 0)
+            let seedPlacement = CrosswordPlacement(entry: anchor, start: start, direction: .across)
+            guard board.canPlace(anchor, start: start, direction: .across, targetSize: profile.size) else { continue }
+
+            board.place(seedPlacement)
+            var queue = board.candidates(from: seedPlacement, profile: profile).shuffled(using: &random)
+
+            while Date() < deadline, !queue.isEmpty, board.answerCount < profile.targetAnswers {
+                let candidate = queue.removeFirst()
+                let entries = rankedEntries(
+                    index.entries(
+                        length: candidate.length,
+                        constraints: candidate.constraints,
+                        usedAnswers: board.usedAnswers
+                    ),
+                    candidate: candidate
+                )
+
+                for entry in entries.prefix(profile.candidateTryLimit) {
+                    guard board.canPlace(entry, start: candidate.start, direction: candidate.direction, targetSize: profile.size) else {
+                        continue
+                    }
+
+                    let placement = CrosswordPlacement(entry: entry, start: candidate.start, direction: candidate.direction)
+                    board.place(placement)
+                    queue.append(contentsOf: board.candidates(from: placement, profile: profile).shuffled(using: &random))
+                    break
+                }
+            }
+
+            guard let puzzle = puzzle(from: board, index: index) else { continue }
+            let score = puzzle.acrossClues.count + puzzle.downClues.count
+            if score > bestScore {
+                bestPuzzle = puzzle
+                bestScore = score
+            }
+
+            if board.answerCount >= profile.targetAnswers {
+                return puzzle
+            }
+        }
+
+        return bestPuzzle
+    }
+
+    private mutating func anchorEntries(from entries: [CrosswordEntry]) -> [CrosswordEntry] {
+        entries
+            .filter { profile.seedLengths.contains($0.normalizedAnswer.count) }
+            .sorted {
+                if $0.normalizedAnswer.count == $1.normalizedAnswer.count {
+                    let leftRank = difficulty.rank(for: $0)
+                    let rightRank = difficulty.rank(for: $1)
+                    if leftRank == rightRank {
+                        return $0.normalizedAnswer < $1.normalizedAnswer
+                    }
+
+                    return leftRank < rightRank
+                }
+
+                return $0.normalizedAnswer.count > $1.normalizedAnswer.count
+            }
+            .prefix(16)
+            .shuffled(using: &random)
+    }
+
+    private mutating func rankedEntries(_ entries: [CrosswordEntry], candidate: PlacementCandidate) -> [CrosswordEntry] {
+        let ranked = entries.map { entry -> (entry: CrosswordEntry, rank: Int) in
+            let difficultyRank = difficulty.rank(for: entry) * 1_000
+            let lengthBonus = entry.normalizedAnswer.count * 100
+            let jitter = Int(random.next() % 500)
+            let rank = difficultyRank - lengthBonus - candidate.score + jitter
+            return (entry, rank)
+        }
+
+        return ranked
+            .sorted { left, right in
+                if left.rank == right.rank {
+                    return left.entry.normalizedAnswer < right.entry.normalizedAnswer
+                }
+
+                return left.rank < right.rank
+            }
+            .map(\.entry)
+    }
+
+    private func puzzle(from board: GeneratedCrosswordBoard, index: WordIndex) -> CrosswordPuzzle? {
+        guard board.answerCount >= profile.minimumAnswers,
+              board.isConnected(),
+              let rows = board.normalizedRows(size: profile.size) else {
+            return nil
+        }
+
+        let clueBank = index.clueBank(for: board.usedAnswers)
+        let puzzle = CrosswordPuzzle(solutionRows: rows, clueBank: clueBank)
+        guard validate(puzzle: puzzle, boardAnswers: board.usedAnswers, clueBank: clueBank) else {
+            return nil
+        }
+
+        return puzzle
+    }
+
+    private func validate(puzzle: CrosswordPuzzle, boardAnswers: Set<String>, clueBank: [String: String]) -> Bool {
+        let allClues = puzzle.acrossClues + puzzle.downClues
+        guard allClues.count >= profile.minimumAnswers,
+              allClues.allSatisfy({ $0.answer.count > 1 }),
+              allClues.allSatisfy({ clueBank[$0.answer]?.isEmpty == false }),
+              allClues.allSatisfy({ boardAnswers.contains($0.answer) }) else {
+            return false
+        }
+
+        let answers = allClues.map(\.answer)
+        guard Set(answers).count == answers.count else { return false }
+
+        let groupedByNumber = Dictionary(grouping: allClues, by: \.number)
+        for clues in groupedByNumber.values where clues.count > 1 {
+            guard Set(clues.map(\.answer)).count == clues.count else {
+                return false
+            }
+        }
+
+        return isConnected(puzzle: puzzle)
+    }
+
+    private func isConnected(puzzle: CrosswordPuzzle) -> Bool {
+        let playable = Set(puzzle.playableCoordinates)
+        guard let first = playable.first else { return false }
+        var visited: Set<CrosswordCoordinate> = [first]
+        var queue = [first]
+
+        while !queue.isEmpty {
+            let current = queue.removeFirst()
+            let neighbors = [
+                CrosswordCoordinate(row: current.row - 1, column: current.column),
+                CrosswordCoordinate(row: current.row + 1, column: current.column),
+                CrosswordCoordinate(row: current.row, column: current.column - 1),
+                CrosswordCoordinate(row: current.row, column: current.column + 1)
+            ]
+
+            for neighbor in neighbors where playable.contains(neighbor) && !visited.contains(neighbor) {
+                visited.insert(neighbor)
+                queue.append(neighbor)
+            }
+        }
+
+        return visited.count == playable.count
+    }
+}
+
 enum CrosswordGenerator {
     static func generate(
         size: Int,
@@ -153,12 +876,29 @@ enum CrosswordGenerator {
         difficulty: PuzzleDifficulty = .easy,
         timeLimit: TimeInterval = 0.6
     ) -> CrosswordPuzzle? {
+        let dictionary = CrosswordDictionary.bundled
+        let profile = CrosswordGenerationProfile(size: size, difficulty: difficulty)
+        var fastGenerator = FastCrosswordGenerator(
+            dictionary: dictionary,
+            difficulty: difficulty,
+            profile: profile,
+            deadline: Date().addingTimeInterval(timeLimit),
+            random: SeededRandomNumberGenerator(seed: UInt64(seed ?? Int.random(in: 1...Int.max)))
+        )
+
+        if let generatedPuzzle = fastGenerator.generate() {
+            return generatedPuzzle
+        }
+
+        if let seedPuzzle = CrosswordSeedLibrary.puzzle(size: size, difficulty: difficulty, seed: seed) {
+            return seedPuzzle
+        }
+
         let templates = CrosswordTemplate.templates(for: size)
         guard !templates.isEmpty else { return nil }
 
         var random = SeededRandomNumberGenerator(seed: UInt64(seed ?? Int.random(in: 1...Int.max)))
         let deadline = Date().addingTimeInterval(timeLimit)
-        let dictionary = CrosswordDictionary.bundled
 
         for template in templates.shuffled(using: &random) where Date() < deadline {
             let solver = CrosswordFillSolver(
